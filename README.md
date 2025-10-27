@@ -1,0 +1,36 @@
+🔧 Cấu hình cơ bản:
+FastAPI app với database connection (PostgreSQL)
+Database dependency (get_db()) để quản lý session
+Auto-create tables khi khởi động ứng dụng
+📋 API Endpoints:
+1. Service Info
+GET / - Trả về thông tin service (tên, version, status)
+2. Authentication (Xác thực)
+POST /auth/register - Đăng ký người dùng mới
+
+Input: username, email, password, user_type (PASSENGER/DRIVER)
+Kiểm tra email đã tồn tại chưa
+Mã hóa password và lưu vào database
+POST /auth/login - Đăng nhập người dùng
+
+Input: email/username + password (OAuth2 form)
+Xác thực thông tin đăng nhập
+Trả về JWT access token
+3. Driver Management (Quản lý tài xế)
+POST /drivers/profile - Tạo hồ sơ tài xế
+
+Input: license_num, birth, card_num + user_id
+Lưu thông tin hồ sơ tài xế vào database
+POST /drivers/vehicles - Đăng ký xe cho tài xế
+
+Input: license_plate, seat_type + user_id
+Lưu thông tin xe vào database
+🔒 Bảo mật:
+JWT token authentication
+Password hashing
+Email validation
+Duplicate email checking
+📊 Database Models hỗ trợ:
+User (UUID, username, email, password, user_type)
+DriverProfile (license, birth, rating, card)
+Vehicle (license_plate, seat_type)

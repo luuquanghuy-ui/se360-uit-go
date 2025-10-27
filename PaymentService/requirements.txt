@@ -1,0 +1,7 @@
+    # PaymentService/requirements.txt
+    fastapi
+    uvicorn[standard]
+    motor
+    pydantic
+    python-dotenv
+    httpx

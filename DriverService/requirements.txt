@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+motor
+pydantic
+python-dotenv
+httpx
+
+
+passlib==1.7.4
+bcrypt==4.1.2
+python-jose[cryptography]
+python-multipart
