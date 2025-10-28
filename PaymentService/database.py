@@ -23,12 +23,9 @@ if not MONGODB_URL:
 try:
     logger.info(f"PaymentService: Đang khởi tạo kết nối đến MongoDB tại {MONGODB_URL}...")
     client: AsyncIOMotorClient = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
-    # Lấy đối tượng database ngay lập tức
+
     database: AsyncIOMotorDatabase = client[DB_NAME]
     
-    # (Tùy chọn) Kiểm tra kết nối ping ngay khi khởi tạo (có thể làm chậm startup)
-    # import asyncio
-    # asyncio.get_event_loop().run_until_complete(client.admin.command('ping')) 
 
     logger.info(f"PaymentService: Kết nối MongoDB thành công! DB: {DB_NAME}")
 

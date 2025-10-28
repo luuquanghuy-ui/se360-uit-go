@@ -1,63 +1,51 @@
 import os
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import declarative_base, sessionmaker
+from typing import AsyncGenerator
 import logging
 from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorCollection
-
 
 load_dotenv()
-
-
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "SQLALCHEMY_DATABASE_URL", 
+    "postgresql+asyncpg://admin:secret@localhost:5432/mydb" 
+)
 
-DB_NAME = os.getenv("MONGO_INITDB_DATABASE", "uitgo_users")
+
+Base = declarative_base()
 
 
-_client: AsyncIOMotorClient | None = None
+engine = create_async_engine(
+    SQLALCHEMY_DATABASE_URL, 
+    echo=False, 
+    future=True
+)
 
-async def get_db_client() -> AsyncIOMotorClient:
-    global _client
-    if _client is None:
-        logger.info(f"UserService: Đang khởi tạo kết nối đến MongoDB tại {MONGODB_URL}...")
-        try:
-            _client = AsyncIOMotorClient(MONGODB_URL)
-            await _client.admin.command('ping')
-            logger.info(f"UserService: Kết nối MongoDB thành công!")
-        except Exception as e:
-            logger.error(f"UserService: LỖI kết nối MongoDB: {e}")
-            _client = None
-            raise 
-    return _client
 
-async def get_database() -> AsyncIOMotorDatabase | None:
+AsyncSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False 
+)
+
+async def init_db():
+    """Khởi tạo và tạo các bảng (tables) nếu chúng chưa tồn tại."""
+    logger.info("UserService: Đang khởi tạo bảng PostgreSQL...")
     try:
-        client = await get_db_client()
-        if client is not None:
-            return client[DB_NAME]
-        else:
-            logger.error("UserService: Không thể lấy database vì client là None.")
-            return None
+        import models 
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all) 
+        logger.info("UserService: Đã khởi tạo và tạo các bảng PostgreSQL thành công.")
     except Exception as e:
-        logger.error(f"UserService: Lỗi khi lấy database: {e}")
-        return None
+        logger.error(f"UserService: LỖI khi khởi tạo database PostgreSQL: {e}")
+        raise
 
-async def get_users_collection() -> AsyncIOMotorCollection | None:
-    db = await get_database()
-    if db is not None: 
-        return db.get_collection("users")
-    return None
-
-async def create_indexes():
-    users_collection = await get_users_collection()
-    if users_collection is not None:
-        try:
-            await users_collection.create_index("email", unique=True, background=True)
-            await users_collection.create_index("phone", unique=True, sparse=True, background=True)
-            logger.info("UserService: Đã tạo/đảm bảo các index cho collection 'users'.")
-        except Exception as e:
-            logger.error(f"UserService: Lỗi khi tạo index: {e}")
-    else:
-        logger.warning("UserService: Không thể tạo index vì không lấy được users_collection.")
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency Injector: Cung cấp database session cho mỗi endpoint."""
+    async with AsyncSessionLocal() as session:
+        yield session

@@ -2,7 +2,6 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 import uuid
-# Import các thành phần từ file models.py cùng thư mục
 from models import UserTypeEnum, VehicleInfo, DriverProfileInfo
 
 class Token(BaseModel):

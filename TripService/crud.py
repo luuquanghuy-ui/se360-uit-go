@@ -12,27 +12,21 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 # import polyline  # Uncomment if you install polyline package
 
-# Load environment variables from .env file
+
 load_dotenv()
 
-
-# === [THÊM MỚI] CẤU HÌNH LOGGING VÀ BIẾN MÔI TRƯỜNG ===
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# === [THÊM MỚI] ĐỌC CLIENT CREDENTIALS VÀ USER SERVICE URL ===
 MY_CLIENT_ID = os.getenv("MY_CLIENT_ID")
 MY_CLIENT_SECRET = os.getenv("MY_CLIENT_SECRET")
 USER_SERVICE_URL = os.getenv("USER_SERVICE_URL")
 DRIVER_SERVICE_URL = os.getenv("DRIVER_SERVICE_URL")
 LOCATION_SERVICE_URL = os.getenv("LOCATION_SERVICE_URL")
-# === [HẾT PHẦN THÊM MỚI] ===
 
-# === [THÊM MỚI] BIẾN ĐỂ LƯU TOKEN TẠM THỜI ===
-# Cách lưu token đơn giản nhất, trong thực tế cần cơ chế tốt hơn
 _service_token_cache: Optional[str] = None
 _token_expiry_time: Optional[datetime] = None
-# === [HẾT PHẦN THÊM MỚI] ===
+
 
 
 # Mapbox API configuration

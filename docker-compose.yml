@@ -31,6 +31,21 @@ services:
     networks:
       - uitgo-net
 
+  postgres:
+    image: postgres:15-alpine
+    container_name: uitgo-postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${MONGO_ROOT_USER}
+      POSTGRES_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      POSTGRES_DB: mydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - uitgo-net
+
   locationservice: 
     build: ./LocationService
     container_name: uitgo-locationservice
@@ -98,10 +113,8 @@ services:
       - VNP_TMN_CODE=${VNP_TMN_CODE} # Đọc từ .env
       - VNP_HASH_SECRET=${VNP_HASH_SECRET} # Đọc từ .env
       - VNP_URL=${VNP_URL} # Đọc từ .env
-      - NGROK_API_URL=http://ngrok:4040/api/tunnels 
     depends_on:
       - mongodb
-      - ngrok 
     networks:
       - uitgo-net
 
@@ -112,30 +125,15 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - MONGODB_URL=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/uitgo_users?authSource=admin
-      - SECRET_KEY=${JWT_SECRET_KEY} # Đọc từ .env (Dùng cho token người dùng)
+      - SQLALCHEMY_DATABASE_URL=postgresql+asyncpg://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@postgres:5432/mydb
+      - SECRET_KEY=${JWT_SECRET_KEY}
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
-      - DRIVER_SERVICE_URL=http://driverservice:8000 # Cần để gọi tạo profile driver
-      # Client ID/Secret của TripService (để UserService biết ai là client hợp lệ)
-      - TRIPSVC_CLIENT_ID=${TRIPSVC_CLIENT_ID} # Đọc từ .env
-      - TRIPSVC_CLIENT_SECRET=${TRIPSVC_CLIENT_SECRET} # Đọc từ .env
+      - DRIVER_SERVICE_URL=http://driverservice:8000 
+      - TRIPSVC_CLIENT_ID=${TRIPSVC_CLIENT_ID} 
+      - TRIPSVC_CLIENT_SECRET=${TRIPSVC_CLIENT_SECRET} 
     depends_on:
-      - mongodb 
-    networks:
-      - uitgo-net
-
-  # ----------------------------------------------
-  #  DỊCH VỤ HỖ TRỢ (Ngrok)
-  # ----------------------------------------------
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: uitgo-ngrok
-    restart: unless-stopped
-    command: http host.docker.internal:8004 
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN} # Đọc từ .env
-    ports:
-      - "4040:4040" 
+      - postgres
+      - driverservice
     networks:
       - uitgo-net
 
@@ -143,6 +141,7 @@ services:
 volumes:
   mongodb_data:
   redis_data:
+  postgres_data:
 
 # Mạng ảo chung
 networks:

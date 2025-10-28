@@ -40,88 +40,28 @@ async def estimate_fare(fare_request: schemas.FareEstimateRequest):
     
     return schemas.FareEstimateResponse(estimates=estimates)
 
-# New endpoints for passenger -> driver flow
-@app.post("/trip-requests/", response_model=schemas.TripResponse, status_code=status.HTTP_201_CREATED)
-async def create_trip_request(trip_request: schemas.TripRequest):
-    """Passenger creates trip request (no driver assigned yet) - Legacy endpoint"""
-    trip_data = await crud.create_trip_request(trip_request)
-    return schemas.TripResponse(**trip_data)
-
-#@app.post("/trip-requests/complete/", response_model=schemas.TripResponse, status_code=status.HTTP_201_CREATED)
-#async def create_complete_trip_request(trip_request: schemas.TripRequestComplete):
-#    """Passenger creates trip request with complete location data from FE"""
-#    trip_data = await crud.create_trip_request_complete(trip_request)
-#    return schemas.TripResponse(**trip_data)
-
 
 @app.post(
     "/trip-requests/complete/",
-    response_model=schemas.TripCreationResponse, # <-- USE THE NEW SCHEMA HERE
-    status_code=status.HTTP_201_CREATED 
-)
-# HÃY XÓA HÀM CŨ VÀ THAY BẰNG HÀM NÀY:
-@app.post(
-    "/trip-requests/complete/",
-    response_model=schemas.TripCreationResponse, # Dùng schema đã sửa (chỉ có 'trip')
-    status_code=status.HTTP_201_CREATED 
+    response_model=schemas.TripCreationResponse, 
 )
 async def create_complete_trip_request(trip_request: schemas.TripRequestComplete):
-    """
-    Hành khách gửi yêu cầu tạo chuyến đi.
-    Hệ thống sẽ tạo chuyến đi và tự động thông báo cho các tài xế gần đó.
-    """
 
-    # === BƯỚC 1: TẠO CHUYẾN ĐI (Giống như cũ) ===
     try:
         trip_data = await crud.create_trip_request_complete(trip_request)
-        trip_id = trip_data["_id"] 
-        logger.info(f"Đã tạo chuyến đi mới với ID: {trip_id}")
-    except ValueError as e:
+        if not trip_data: 
+             raise HTTPException(status_code=500, detail="Lỗi không xác định khi tạo chuyến đi.")
+        return {"trip": trip_data}
+
+    except ValueError as e: 
         logger.error(f"Lỗi khi tạo chuyến đi: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except HTTPException as http_exc: 
+         raise http_exc
+    except Exception as e: 
         logger.error(f"Lỗi không xác định khi tạo chuyến đi: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Lỗi server khi tạo chuyến đi.")
 
-    # === BƯỚC 2: GỌI LOCATION SERVICE TÌM TÀI XẾ (Giống như cũ) ===
-    pickup_coords = trip_request.pickup
-    logger.info(f"Bắt đầu tìm tài xế gần vị trí: ({pickup_coords.latitude}, {pickup_coords.longitude})")
-    
-    nearby_drivers_raw = await crud.find_nearby_drivers_from_location_service(
-        pickup_coords.latitude,
-        pickup_coords.longitude
-    )
-
-    # === BƯỚC 3: XỬ LÝ KẾT QUẢ TÌM TÀI XẾ (Logic mới) ===
-    if not nearby_drivers_raw:
-        logger.warning(f"Không tìm thấy tài xế nào cho chuyến đi {trip_id}.")
-        # Dù không tìm thấy, vẫn trả về chuyến đi.
-        # App của khách sẽ ở trạng thái "Đang tìm..."
-    else:
-        # TÌM THẤY TÀI XẾ -> BẮT ĐẦU PHÁT THÔNG BÁO
-        logger.info(f"Tìm thấy {len(nearby_drivers_raw)} tài xế gần đó cho chuyến đi {trip_id}.")
-        driver_ids = [driver['driver_id'] for driver in nearby_drivers_raw]
-
-        # BƯỚC 3a: Lưu lại danh sách đã mời
-        await crud.add_notified_drivers_to_trip(trip_id, driver_ids)
-
-        # BƯỚC 3b: Chuẩn bị payload thông báo
-        trip_payload = {
-            "type": "TRIP_OFFER",
-            "trip_id": trip_id,
-            "pickup_address": trip_data["pickup"]["address"],
-            "dropoff_address": trip_data["dropoff"]["address"],
-            "estimated_fare": trip_data["fare"]["estimated"],
-            "distance_meters": trip_data["route_info"]["distance"]
-        }
-
-        # BƯỚC 3c: Gọi LocationService để bắn WebSocket
-        await crud.notify_drivers_via_location_service(driver_ids, trip_payload)
-
-    # === BƯỚC 4: TRẢ VỀ KẾT QUẢ CHO HÀNH KHÁCH ===
-    # Chỉ trả về thông tin chuyến đi.
-    # App của hành khách sẽ dùng trip_id để kết nối WSS
-    return {"trip": trip_data}
 
 
 
@@ -130,7 +70,7 @@ async def assign_driver(trip_id: str, assign_data: schemas.AssignDriver):
     """Assign driver to a pending trip"""
     trip_data = await crud.assign_driver_to_trip(trip_id, assign_data.driver_id)
     if trip_data is None:
-        raise HTTPException(status_code=409, detail="Trip not found or already assigned")
+        raise HTTPException(status_code=409, detail="Chuyến đi không hợp lệ, đã được nhận, bị hủy hoặc đã quá hạn chấp nhận.")
     return schemas.TripResponse(**trip_data)
 
 
@@ -283,13 +223,20 @@ async def add_payment_info(trip_id: str, payment: schemas.PaymentCreate):
         raise HTTPException(status_code=404, detail="Trip not found")
     return {"message": "Payment info added successfully", "trip_id": trip_id}
 
-@app.put("/trips/{trip_id}/payment")
-async def update_payment_status(trip_id: str, payment_update: schemas.PaymentUpdate):
-    """Update payment status"""
-    trip_data = await crud.update_payment_status(trip_id, payment_update)
-    if trip_data is None:
-        raise HTTPException(status_code=404, detail="Trip not found")
-    return {"message": "Payment status updated", "trip_id": trip_id, "status": payment_update.status}
+@app.put("/trips/{trip_id}/payment", status_code=status.HTTP_200_OK, tags=["Payment Internal"])
+async def update_trip_payment_status_internal(
+    trip_id: str,
+    payment_update: schemas.PaymentUpdate 
+):
+    """[API NỘI BỘ] Cập nhật trạng thái thanh toán từ PaymentService."""
+    logger.info(f"Nhận yêu cầu cập nhật thanh toán cho chuyến {trip_id}: Status={payment_update.status}")
+    updated_trip = await crud.update_payment_status(trip_id, payment_update)
+    if updated_trip is None:
+        logger.error(f"Không thể cập nhật trạng thái thanh toán cho chuyến đi {trip_id}")
+        raise HTTPException(status_code=404, detail="Trip not found or update failed.")
+    logger.info(f"Đã cập nhật trạng thái thanh toán cho chuyến {trip_id}")
+    return {"message": "Payment status updated successfully"}
+
 
 @app.post("/trips/{trip_id}/rating")
 async def add_trip_rating(trip_id: str, rating: schemas.RatingCreate):

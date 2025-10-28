@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class TransactionType(str, Enum):
     PAYMENT = "PAYMENT"
     TOPUP = "TOPUP"
+    EARNING ="EARNING"
 
 class TransactionStatus(str, Enum):
     PENDING = "PENDING"
