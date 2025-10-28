@@ -1,36 +1,19 @@
-🔧 Cấu hình cơ bản:
-FastAPI app với database connection (PostgreSQL)
-Database dependency (get_db()) để quản lý session
-Auto-create tables khi khởi động ứng dụng
-📋 API Endpoints:
-1. Service Info
-GET / - Trả về thông tin service (tên, version, status)
-2. Authentication (Xác thực)
-POST /auth/register - Đăng ký người dùng mới
+﻿# UIT-Go
 
-Input: username, email, password, user_type (PASSENGER/DRIVER)
-Kiểm tra email đã tồn tại chưa
-Mã hóa password và lưu vào database
-POST /auth/login - Đăng nhập người dùng
+Tài liệu kiến trúc hệ thống: xem docs/ARCHITECTURE.md để nắm tổng quan microservice, sơ đồ sequence và cách các service giao tiếp (HTTP/WS).
 
-Input: email/username + password (OAuth2 form)
-Xác thực thông tin đăng nhập
-Trả về JWT access token
-3. Driver Management (Quản lý tài xế)
-POST /drivers/profile - Tạo hồ sơ tài xế
+� Ghi chú nhanh:
+- Các service dùng FastAPI + MongoDB; LocationService dùng Redis và WebSocket để định vị real-time.
+- Cổng ngoài: UserService 8000, LocationService 8001, TripService 8002, DriverService 8003, PaymentService 8004.
 
-Input: license_num, birth, card_num + user_id
-Lưu thông tin hồ sơ tài xế vào database
-POST /drivers/vehicles - Đăng ký xe cho tài xế
+📚 Onboarding nhanh:
+1) Đọc docs/ARCHITECTURE.md (sơ đồ và luồng chính).
+2) Kiểm tra docker-compose.yml và tạo file .env theo ghi chú trong compose.
+3) Chạy toàn bộ bằng Docker Compose.
 
-Input: license_plate, seat_type + user_id
-Lưu thông tin xe vào database
-🔒 Bảo mật:
-JWT token authentication
-Password hashing
-Email validation
-Duplicate email checking
-📊 Database Models hỗ trợ:
-User (UUID, username, email, password, user_type)
-DriverProfile (license, birth, rating, card)
-Vehicle (license_plate, seat_type)
+📋 API (rút gọn – xem code từng service để chi tiết):
+- UserService: /auth/register, /auth/login, /auth/token, /users/*
+- TripService: /fare-estimate, /trip-requests/complete, /trips/*
+- DriverService: /drivers/* và /drivers/internal/{id} (nội bộ)
+- LocationService: /drivers/nearby, /notify/*, WS /ws/driver/* và /ws/trip/*
+- PaymentService: /process-payment, /payment-return, /users/{id}/wallet, /wallets/top-up
