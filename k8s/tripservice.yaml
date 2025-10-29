@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tripservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tripservice
+  template:
+    metadata:
+      labels:
+        app: tripservice
+    spec:
+      containers:
+      - name: tripservice
+        image: acruitgoprod.azurecr.io/tripservice:latest # CI/CD sẽ thay
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: uitgo-secrets # Lấy các secret chung (VNPAY, Mapbox, v.v.)
+        env:
+        # Code của bạn chỉ cần đọc biến MONGODB_URL này (đã là connection string của CosmosDB)
+        - name: MONGODB_URL
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: COSMOS_CONNECTION_STRING } }
+        # Tên DNS nội bộ của các service K8s
+        - name: LOCATION_SERVICE_URL
+          value: "http://locationservice:8000"
+        - name: DRIVER_SERVICE_URL
+          value: "http://driverservice:8000"
+        - name: PAYMENT_SERVICE_URL
+          value: "http://paymentservice:8000"
+        # Đổi tên biến để khớp với tên K8s Secret
+        - name: MY_CLIENT_ID
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: TRIPSVC_CLIENT_ID } }
+        - name: MY_CLIENT_SECRET
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: TRIPSVC_CLIENT_SECRET } }
+        - name: USER_SERVICE_URL
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: USER_SERVICE_BASE_URL } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tripservice # Service nội bộ
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: tripservice

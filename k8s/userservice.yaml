@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: userservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: userservice
+  template:
+    metadata:
+      labels:
+        app: userservice
+    spec:
+      containers:
+      - name: userservice
+        image: acruitgoprod.azurecr.io/userservice:latest # CI/CD sẽ thay
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: uitgo-secrets
+        env:
+        # Code của bạn cần xây dựng chuỗi kết nối từ 4 biến này
+        - name: POSTGRES_HOST
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: POSTGRES_HOST } }
+        - name: POSTGRES_USER
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: POSTGRES_USER } }
+        - name: POSTGRES_PASSWORD
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: DB_PASSWORD } }
+        - name: POSTGRES_DB
+          value: "mydb"
+        - name: ACCESS_TOKEN_EXPIRE_MINUTES
+          value: "30"
+        - name: DRIVER_SERVICE_URL
+          value: "http://driverservice:8000"
+        - name: SECRET_KEY # Đổi tên thành JWT_SECRET_KEY nếu code của bạn dùng tên đó
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: JWT_SECRET_KEY } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: userservice
+spec:
+  type: LoadBalancer # Service này sẽ có IP Public để truy cập từ bên ngoài
+  ports:
+  - port: 80 # Cổng public
+    targetPort: 8000 # Cổng container
+  selector:
+    app: userservice
