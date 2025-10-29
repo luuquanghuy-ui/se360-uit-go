@@ -2,8 +2,21 @@
 .DS_Store
 Thumbs.db
 
-#terraform
-.terraform/*
+# Terraform
+# Ignore all local Terraform working dirs anywhere (providers, plugins, etc.)
+**/.terraform/**
+# Ignore local state files anywhere
+*.tfstate
+*.tfstate.*
+# Ignore local crash logs and override files
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# Keep the lock file under version control (recommended)
+!.terraform.lock.hcl
+*.tfplan
 
 # IDE / Editor
 .vscode/
@@ -26,6 +39,8 @@ __pycache__/
 UserService/venv/
 TripService/venv/
 DriverService/venv/
+LocationService/venv/
+PaymentService/venv/
 
 # Logs
 *.log
