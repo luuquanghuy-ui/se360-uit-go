@@ -3,7 +3,7 @@
 Thumbs.db
 
 #terraform
-.terraform/
+.terraform/*
 
 # IDE / Editor
 .vscode/
