@@ -2,21 +2,21 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 4.0"
+      version = ">= 4.0" # Hoặc ">= 3.0"
     }
   }
-}
 
-# --- THÊM PHẦN NÀY ---
+  # --- KHỐI BACKEND PHẢI NẰM BÊN TRONG KHỐI TERRAFORM ---
   backend "azurerm" {
-    resource_group_name  = "rg-uitgo-tfstate"    # Tên RG bạn đã tạo
-    storage_account_name = "stuitgotfstate"      # Tên Storage Account bạn đã tạo
-    container_name       = "tfstate"             # Tên Container bạn đã tạo
-    key                  = "prod.terraform.tfstate" # Tên file state
+    resource_group_name  = "rg-uitgo-tfstate"
+    storage_account_name = "stuitgotfstate"
+    container_name       = "tfstate"
+    key                  = "prod.terraform.tfstate"
   }
-  # --- HẾT PHẦN THÊM ---
-
+  # --- HẾT ---
+}
 
 provider "azurerm" {
   features {}
+  subscription_id = "d8ece151-084a-418c-a446-0ff133a2d388"
 }
