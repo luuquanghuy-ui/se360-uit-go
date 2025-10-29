@@ -1,10 +1,10 @@
-# DriverService/crud.py
+# DriverService/crud.py (ĐÃ SỬA LỖI ObjectId)
 
 import os
 import httpx
 from datetime import datetime, timezone
 from typing import Dict, Optional, Any, List
-from bson import ObjectId
+from bson import ObjectId # Vẫn import, nhưng không dùng cho _id chính
 import logging
 import models
 import schemas
@@ -17,12 +17,15 @@ USER_SERVICE_URL = os.getenv("USER_SERVICE_URL", "http://userservice:8000")
 #Helper
 
 def driver_helper(driver_data: dict) -> models.Driver:
+    # _id đã là string rồi, không cần str() nữa
+    # Chỉ cần đổi tên _id thành id cho Pydantic
     if "_id" in driver_data:
-        driver_data["id"] = str(driver_data.pop("_id"))
+        driver_data["id"] = driver_data.pop("_id")
     return models.Driver(**driver_data)
 
 def wallet_helper(wallet_data: dict) -> models.DriverWallet:
     if "_id" in wallet_data:
+        # _id của wallet có thể là ObjectId hoặc string, nên str() cho an toàn
         wallet_data["id"] = str(wallet_data.pop("_id"))
     return models.DriverWallet(**wallet_data)
 
@@ -31,15 +34,18 @@ async def create_driver_profile(driver_create: schemas.DriverCreate, user_id_str
     if drivers_collection is None:
         logger.error("Lỗi: drivers_collection chưa được khởi tạo.")
         return None
-    try:
-        driver_oid = ObjectId(user_id_str)
-    except Exception:
-        logger.warning(f"DriverService: Invalid user_id format: {user_id_str}")
-        return None
-    existing = await drivers_collection.find_one({"_id": driver_oid})
+    
+    # === [SỬA ĐỔI] ===
+    # user_id_str là một UUID string (ví dụ: 'c3e190ee...') từ UserService
+    # Chúng ta sẽ dùng nó làm _id (dạng string) bên MongoDB
+    
+    # Bỏ try/except ObjectId(user_id_str)
+    
+    existing = await drivers_collection.find_one({"_id": user_id_str})
     if existing:
         logger.info(f"DriverService: Hồ sơ cho {user_id_str} đã tồn tại.")
         return driver_helper(existing)
+    
     try:
         if hasattr(driver_create.vehicle, 'model_dump'):
              vehicle_data = driver_create.vehicle.model_dump()
@@ -52,8 +58,9 @@ async def create_driver_profile(driver_create: schemas.DriverCreate, user_id_str
         vehicle_data.setdefault("license_plate", "Chưa cập nhật")
         vehicle_data.setdefault("seat_type", 4)
         vehicle_info_obj = models.VehicleInfo(**vehicle_data)
+        
         driver_obj = models.Driver(
-            id=user_id_str, 
+            id=user_id_str, # Pydantic model dùng id = string
             name=driver_create.name,
             phone=driver_create.phone,
             email=driver_create.email,
@@ -63,17 +70,21 @@ async def create_driver_profile(driver_create: schemas.DriverCreate, user_id_str
     except (TypeError, ValueError, Exception) as e:
         logger.error(f"Lỗi khi xử lý dữ liệu đầu vào để tạo Driver: {e}", exc_info=True)
         return None
+        
     try:
         driver_doc = driver_obj.model_dump(by_alias=True, exclude={"id"}, exclude_none=True)
-        driver_doc["_id"] = driver_oid 
+        
+        # === [SỬA ĐỔI QUAN TRỌNG] ===
+        # Gán _id là user_id_str (dạng string), KHÔNG DÙNG ObjectId
+        driver_doc["_id"] = user_id_str 
 
         await drivers_collection.insert_one(driver_doc)
 
-        new_doc = await drivers_collection.find_one({"_id": driver_oid})
+        new_doc = await drivers_collection.find_one({"_id": user_id_str})
         if new_doc:
             return driver_helper(new_doc)
         else:
-            logger.error(f"Không thể tìm thấy tài xế vừa tạo với ID: {driver_oid}")
+            logger.error(f"Không thể tìm thấy tài xế vừa tạo với ID: {user_id_str}")
             return None
     except Exception as e:
         logger.error(f"Lỗi khi lưu tài xế vào database: {e}", exc_info=True)
@@ -81,23 +92,27 @@ async def create_driver_profile(driver_create: schemas.DriverCreate, user_id_str
     
 async def get_driver_by_id(driver_id_str: str) -> Optional[models.Driver]:
     if drivers_collection is None: return None
-    try:
-        driver_oid = ObjectId(driver_id_str)
-    except Exception:
-        print(f"DriverService: Invalid user_id format: {driver_id_str}")
-        return None
     
-    driver_data = await drivers_collection.find_one({"_id": driver_oid})
+    # === [SỬA ĐỔI] ===
+    # Bỏ try/except ObjectId()
+    # Tìm trực tiếp bằng chuỗi ID (string)
+    
+    # (Bỏ log "Invalid user_id format" vì giờ string nào cũng hợp lệ)
+    
+    driver_data = await drivers_collection.find_one({"_id": driver_id_str})
     if driver_data:
         return driver_helper(driver_data)
+    
+    # Thêm log nếu không tìm thấy
+    logger.warning(f"DriverService: Không tìm thấy tài xế với _id string: {driver_id_str}")
     return None
 
 async def update_driver_profile(driver_id_str: str, update_data: schemas.DriverUpdate) -> Optional[models.Driver]:
     if drivers_collection is None: return None
-    try:
-        driver_oid = ObjectId(driver_id_str)
-    except Exception:
-        return None 
+    
+    # === [SỬA ĐỔI] ===
+    # Bỏ try/except ObjectId()
+    
     update_fields = update_data.model_dump(exclude_unset=True)
     if "status" in update_fields:
         del update_fields["status"]
@@ -106,7 +121,7 @@ async def update_driver_profile(driver_id_str: str, update_data: schemas.DriverU
     update_fields["updated_at"] = datetime.now(timezone.utc)
     
     result = await drivers_collection.update_one(
-        {"_id": driver_oid},
+        {"_id": driver_id_str}, # Tìm bằng string
         {"$set": update_fields}
     )
     if result.matched_count == 0:
@@ -117,11 +132,10 @@ async def update_driver_status(driver_id_str: str, new_status: str) -> Optional[
     if drivers_collection is None:
         print("Lỗi: drivers_collection chưa được khởi tạo.")
         return None
-    try:
-        driver_oid = ObjectId(driver_id_str)
-    except Exception:
-        print(f"DriverService: Invalid user_id format: {driver_id_str}")
-        return None
+        
+    # === [SỬA ĐỔI] ===
+    # Bỏ try/except ObjectId()
+        
     try:
         status_enum = models.DriverStatusEnum(new_status)
     except ValueError:
@@ -129,7 +143,7 @@ async def update_driver_status(driver_id_str: str, new_status: str) -> Optional[
         return None
 
     update_result = await drivers_collection.update_one(
-        {"_id": driver_oid},
+        {"_id": driver_id_str}, # Tìm bằng string
         {
             "$set": {
                 "status": status_enum.value,
@@ -166,7 +180,7 @@ async def get_driver_by_email(email: str) -> Optional[models.Driver]:
     user_id_str = user_data.get("id") 
     if not user_id_str:
         return None
-        
+         
     driver_profile = await get_driver_by_id(user_id_str)
     return driver_profile
 
@@ -176,7 +190,7 @@ async def get_or_create_driver_wallet(driver_id: str) -> Optional[models.DriverW
     if driver_wallets_collection is None:
         print("Lỗi: driver_wallets_collection chưa được khởi tạo.")
         return None
-        
+         
     wallet_data = await driver_wallets_collection.find_one({"driver_id": driver_id})
     if not wallet_data:
         new_wallet = models.DriverWallet(driver_id=driver_id)
@@ -195,7 +209,7 @@ async def update_driver_balance(driver_id: str, request: schemas.UpdateBalanceRe
     wallet = await get_or_create_driver_wallet(driver_id)
     if not wallet:
         return None
-        
+         
     await driver_wallets_collection.update_one(
         {"driver_id": driver_id},
         {

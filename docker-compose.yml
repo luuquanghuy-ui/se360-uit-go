@@ -38,7 +38,7 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: ${MONGO_ROOT_USER}
+      POSTGRES_USER: 
       POSTGRES_PASSWORD: ${MONGO_ROOT_PASSWORD}
       POSTGRES_DB: mydb
     volumes:
