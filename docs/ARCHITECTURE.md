@@ -143,12 +143,36 @@ sequenceDiagram
   - Retry/backoff khi gọi nội bộ (httpx), circuit breaker.
   - API Gateway cho routing/observability.
 
-## Biến môi trường quan trọng (rút gọn)
+## Biến môi trường quan trọng (theo service)
 
-- JWT: `JWT_SECRET_KEY` (SECRET_KEY), `ACCESS_TOKEN_EXPIRE_MINUTES`
-- TripService: `LOCATION_SERVICE_URL`, `DRIVER_SERVICE_URL`, `PAYMENT_SERVICE_URL`, `MAPBOX_ACCESS_TOKEN`, `MY_CLIENT_ID`, `MY_CLIENT_SECRET`, `USER_SERVICE_URL`
-- PaymentService: `VNP_TMN_CODE`, `VNP_HASH_SECRET`, `VNP_URL`, `BASE_URL` (hoặc NGROK_API)
-- DB: `MONGO_ROOT_USER`, `MONGO_ROOT_PASSWORD`
+- Mongo/Redis (hạ tầng):
+  - `MONGO_ROOT_USER`, `MONGO_ROOT_PASSWORD`, `MONGO_INITDB_DATABASE` (khởi tạo Mongo container)
+  - `REDIS_URL` (LocationService), mặc định trong compose trỏ tới `redis://redis:6379`
+
+- UserService:
+  - `MONGODB_URL` (ví dụ: mongodb://user:pass@mongodb:27017/uitgo_users?authSource=admin)
+  - `SECRET_KEY` (JWT Secret), `ACCESS_TOKEN_EXPIRE_MINUTES`
+  - `TRIPSVC_CLIENT_ID`, `TRIPSVC_CLIENT_SECRET` (để cấp Service Token cho TripService)
+  - `DRIVER_SERVICE_URL` (nội bộ, nếu cần gọi sang DriverService)
+
+- TripService:
+  - `MONGODB_URL` (uitgo_trips), `LOCATION_SERVICE_URL`, `DRIVER_SERVICE_URL`, `PAYMENT_SERVICE_URL`
+  - `MAPBOX_ACCESS_TOKEN`
+  - `MY_CLIENT_ID`, `MY_CLIENT_SECRET` (client credentials khi xin Service Token từ UserService)
+  - `USER_SERVICE_URL`
+
+- DriverService:
+  - `MONGODB_URL` (uitgo_drivers), `LOCATION_SERVICE_URL`, `PAYMENT_SERVICE_URL`
+  - `SECRET_KEY` (dùng để verify Service JWT gửi tới endpoint nội bộ)
+
+- LocationService:
+  - `REDIS_URL`
+
+- PaymentService:
+  - `MONGODB_URL` (uitgo_payments), `DRIVER_SERVICE_URL`
+  - `VNP_TMN_CODE`, `VNP_HASH_SECRET`, `VNP_URL`
+  - `BASE_URL` — Public base URL để VNPay redirect/callback (ví dụ dùng ngrok thì set HTTPS URL của ngrok vào đây). Lưu ý: code hiện tại dùng `BASE_URL` chứ không đọc `NGROK_API_URL`.
+  - `NGROK_AUTHTOKEN` thuộc container ngrok (không phải biến của PaymentService)
 
 ## Quick start (tuỳ chọn)
 
