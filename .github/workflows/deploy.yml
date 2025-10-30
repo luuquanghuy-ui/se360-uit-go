@@ -31,9 +31,8 @@ jobs:
         creds: ${{ secrets.AZURE_CREDENTIALS }} # Dùng secret bạn đã tạo
 
     - name: Log in to ACR
-      uses: azure/docker-login@v1
-      with:
-        login-server: ${{ env.ACR_NAME }}.azurecr.io
+      run: |
+        az acr login --name ${{ env.ACR_NAME }}
         
     - name: Build and push (LocationService)
       run: |
