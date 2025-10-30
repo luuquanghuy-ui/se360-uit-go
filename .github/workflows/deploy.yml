@@ -31,7 +31,7 @@ jobs:
         creds: ${{ secrets.AZURE_CREDENTIALS }} # Dùng secret bạn đã tạo
 
     - name: Log in to ACR
-      uses: azure/docker-login-acr@v1
+      uses: azure/docker-login@v1
       with:
         login-server: ${{ env.ACR_NAME }}.azurecr.io
         
