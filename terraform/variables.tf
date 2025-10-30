@@ -9,3 +9,9 @@ variable "location" {
   type        = string
   default     = "Southeast Asia"
 }
+
+variable "db_password" {
+  description = "Mật khẩu cho PostgreSQL và MongoDB (nên set qua TF_VAR_db_password hoặc terraform.tfvars)"
+  type        = string
+  sensitive   = true
+}
