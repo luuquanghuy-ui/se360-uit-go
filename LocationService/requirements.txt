@@ -1,0 +1,6 @@
+# LocationService/requirements.txt
+fastapi
+uvicorn[standard]
+redis
+python-dotenv
+azure-identity

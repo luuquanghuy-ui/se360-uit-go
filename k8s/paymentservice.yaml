@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paymentservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: paymentservice
+  template:
+    metadata:
+      labels:
+        app: paymentservice
+    spec:
+      containers:
+      - name: paymentservice
+        image: acruitgoprod.azurecr.io/paymentservice:latest # CI/CD sẽ thay
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: uitgo-secrets # Lấy các secret chung (VNPAY)
+        env:
+        - name: MONGODB_URL
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: COSMOS_CONNECTION_STRING } }
+        - name: DRIVER_SERVICE_URL
+          value: "http://driverservice:8000"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: paymentservice # Service nội bộ
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: paymentservice

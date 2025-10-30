@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locationservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locationservice
+  template:
+    metadata:
+      labels:
+        app: locationservice
+    spec:
+      containers:
+      - name: locationservice
+        image: acruitgoprod.azurecr.io/locationservice:latest # CI/CD sẽ thay
+        ports:
+        - containerPort: 8000
+        env:
+        # Code của bạn cần đọc 2 biến này và bật SSL khi kết nối Redis
+        - name: REDIS_HOST
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: REDIS_HOST } }
+        - name: REDIS_KEY
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: REDIS_KEY } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: locationservice # Service nội bộ
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: locationservice

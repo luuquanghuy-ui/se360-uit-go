@@ -1,0 +1,56 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Terraform
+# Ignore all local Terraform working dirs anywhere (providers, plugins, etc.)
+**/.terraform/**
+# Ignore local state files anywhere
+*.tfstate
+*.tfstate.*
+# Ignore local crash logs and override files
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# Keep the lock file under version control (recommended)
+!.terraform.lock.hcl
+*.tfplan
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+.venv/
+UserService/venv/
+TripService/venv/
+DriverService/venv/
+LocationService/venv/
+PaymentService/venv/
+
+# Logs
+*.log
+logs/
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Env
+.env
+.env.*

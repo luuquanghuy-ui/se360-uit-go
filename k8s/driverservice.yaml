@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: driverservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: driverservice
+  template:
+    metadata:
+      labels:
+        app: driverservice
+    spec:
+      containers:
+      - name: driverservice
+        image: acruitgoprod.azurecr.io/driverservice:latest # CI/CD sẽ thay
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - secretRef:
+            name: uitgo-secrets
+        env:
+        - name: MONGODB_URL
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: COSMOS_CONNECTION_STRING } }
+        - name: LOCATION_SERVICE_URL
+          value: "http://locationservice:8000"
+        - name: PAYMENT_SERVICE_URL
+          value: "http://paymentservice:8000"
+        - name: SECRET_KEY # Đổi tên thành JWT_SECRET_KEY nếu code của bạn dùng tên đó
+          valueFrom: { secretKeyRef: { name: uitgo-secrets, key: JWT_SECRET_KEY } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: driverservice # Service nội bộ
+spec:
+  ports:
+  - port: 8000
+    targetPort: 8000
+  selector:
+    app: driverservice

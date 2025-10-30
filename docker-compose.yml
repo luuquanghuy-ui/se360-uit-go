@@ -1,0 +1,149 @@
+# docker-compose.yml (ĐÃ SỬA ĐỔI ĐỂ DÙNG .env)
+
+services:
+
+  # ----------------------------------------------
+  #  CÁC DATABASE
+  # ----------------------------------------------
+  mongodb:
+    image: mongo:7.0
+    container_name: uitgo-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER} 
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD} 
+      MONGO_INITDB_DATABASE: uitgo_db 
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - uitgo-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: uitgo-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - uitgo-net
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: uitgo-postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${MONGO_ROOT_USER}
+      POSTGRES_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      POSTGRES_DB: mydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - uitgo-net
+
+  locationservice: 
+    build: ./LocationService
+    container_name: uitgo-locationservice
+    restart: always
+    ports:
+      - "8001:8000" 
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - uitgo-net
+
+  tripservice:
+    build: ./TripService
+    container_name: uitgo-tripservice
+    restart: always
+    ports:
+      - "8002:8000"
+    environment:
+      # Dùng biến từ .env để tạo connection string
+      - MONGODB_URL=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/uitgo_trips?authSource=admin 
+      - LOCATION_SERVICE_URL=http://locationservice:8000 
+      - DRIVER_SERVICE_URL=http://driverservice:8000 # Cần để gọi lấy info driver
+      - MAPBOX_ACCESS_TOKEN=${MAPBOX_ACCESS_TOKEN} # Đọc từ .env
+      - PAYMENT_SERVICE_URL=http://paymentservice:8000
+      # Client ID và Secret của chính TripService (để dùng khi gọi UserService)
+      - MY_CLIENT_ID=${TRIPSVC_CLIENT_ID} # Đọc từ .env
+      - MY_CLIENT_SECRET=${TRIPSVC_CLIENT_SECRET} # Đọc từ .env
+      - USER_SERVICE_URL=${USER_SERVICE_BASE_URL}
+    depends_on:
+      - mongodb
+      - locationservice 
+      - driverservice
+      - userservice
+    networks:
+      - uitgo-net
+
+  driverservice:
+    build: ./DriverService
+    container_name: uitgo-driverservice
+    restart: always
+    ports:
+      - "8003:8000"
+    environment:
+      - MONGODB_URL=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/uitgo_drivers?authSource=admin 
+      - LOCATION_SERVICE_URL=http://locationservice:8000 
+      - PAYMENT_SERVICE_URL=http://paymentservice:8000
+      - SECRET_KEY=${JWT_SECRET_KEY} 
+    depends_on:
+      - mongodb
+      - locationservice 
+    networks:
+      - uitgo-net
+
+  paymentservice:
+    build: ./PaymentService
+    container_name: uitgo-paymentservice
+    restart: unless-stopped 
+    ports:
+      - "8004:8000"
+    environment:
+      - MONGODB_URL=mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongodb:27017/uitgo_payments?authSource=admin
+      - DRIVER_SERVICE_URL=http://driverservice:8000
+      - VNP_TMN_CODE=${VNP_TMN_CODE} # Đọc từ .env
+      - VNP_HASH_SECRET=${VNP_HASH_SECRET} # Đọc từ .env
+      - VNP_URL=${VNP_URL} # Đọc từ .env
+    depends_on:
+      - mongodb
+    networks:
+      - uitgo-net
+
+  userservice: 
+    build: ./UserService
+    container_name: uitgo-userservice
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - SQLALCHEMY_DATABASE_URL=postgresql+asyncpg://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@postgres:5432/mydb
+      - SECRET_KEY=${JWT_SECRET_KEY}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - DRIVER_SERVICE_URL=http://driverservice:8000 
+      - TRIPSVC_CLIENT_ID=${TRIPSVC_CLIENT_ID} 
+      - TRIPSVC_CLIENT_SECRET=${TRIPSVC_CLIENT_SECRET} 
+    depends_on:
+      - postgres
+      - driverservice
+    networks:
+      - uitgo-net
+
+# Nơi lưu trữ data
+volumes:
+  mongodb_data:
+  redis_data:
+  postgres_data:
+
+# Mạng ảo chung
+networks:
+  uitgo-net:
+    driver: bridge
