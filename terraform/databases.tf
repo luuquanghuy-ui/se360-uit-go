@@ -1,4 +1,20 @@
 # ================================================
+# Private DNS Zone cho PostgreSQL (BẮT BUỘC cho VNet Integration)
+# ================================================
+resource "azurerm_private_dns_zone" "postgres_dns" {
+  name                = "private.postgres.database.azure.com"
+  resource_group_name = azurerm_resource_group.rg.name
+}
+
+# Link DNS Zone với VNet
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres_dns_link" {
+  name                  = "postgres-dns-link"
+  resource_group_name   = azurerm_resource_group.rg.name
+  private_dns_zone_name = azurerm_private_dns_zone.postgres_dns.name
+  virtual_network_id    = azurerm_virtual_network.vnet.id
+}
+
+# ================================================
 # PostgreSQL Flexible Server (cho UserService)
 # ================================================
 resource "azurerm_postgresql_flexible_server" "postgres" {
@@ -13,8 +29,14 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
   version    = "15"
   storage_mb = 32768 # 32 GB
 
-  # QUAN TRỌNG: Cho phép Azure services truy cập
-  public_network_access_enabled = true
+  # --- THAY ĐỔI QUAN TRỌNG: Sử dụng VNet Integration ---
+  public_network_access_enabled = false # Tắt truy cập public
+  delegated_subnet_id           = azurerm_subnet.postgres_subnet.id # Đặt vào subnet riêng
+  private_dns_zone_id           = azurerm_private_dns_zone.postgres_dns.id # DNS Zone (BẮT BUỘC)
+  # --- HẾT THAY ĐỔI ---
+
+  # PostgreSQL server phải chờ DNS Zone link được tạo trước
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres_dns_link]
 
   # Tắt các tính năng không cần thiết để tiết kiệm chi phí
   backup_retention_days        = 7
@@ -32,32 +54,11 @@ resource "azurerm_postgresql_flexible_server_database" "postgres_db" {
 }
 
 # ================================================
-# FIREWALL RULE: Cho phép AKS kết nối
+# FIREWALL RULES: KHÔNG CẦN THIẾT NỮA
 # ================================================
-
-# Option 1: Cho phép tất cả Azure services (khuyến nghị cho dev/test)
-resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure_services" {
-  name             = "AllowAllAzureServicesAndResourcesWithinAzureIps"
-  server_id        = azurerm_postgresql_flexible_server.postgres.id
-  start_ip_address = "0.0.0.0"
-  end_ip_address   = "0.0.0.0"
-}
-
-# Option 2: Cho phép chỉ AKS subnet (an toàn hơn, nhưng cần VNet integration)
-# Uncomment nếu muốn dùng Private Endpoint thay vì Public access:
-# resource "azurerm_private_endpoint" "postgres_pe" {
-#   name                = "pe-postgres-${var.prefix}"
-#   location            = azurerm_resource_group.rg.location
-#   resource_group_name = azurerm_resource_group.rg.name
-#   subnet_id           = azurerm_subnet.aks_subnet.id
-#
-#   private_service_connection {
-#     name                           = "psc-postgres"
-#     private_connection_resource_id = azurerm_postgresql_flexible_server.postgres.id
-#     is_manual_connection           = false
-#     subresource_names              = ["postgresqlServer"]
-#   }
-# }
+# Khi sử dụng VNet Integration (delegated_subnet_id), firewall rules
+# không còn cần thiết vì kết nối đã được bảo mật nội bộ trong VNet.
+# PostgreSQL server chỉ có thể truy cập được từ các resources trong VNet.
 
 # ================================================
 # CosmosDB (MongoDB API) - cho các services khác
@@ -122,7 +123,6 @@ resource "azurerm_redis_cache" "redis" {
   capacity            = 0 # C0 = 250 MB (rẻ nhất)
   family              = "C"
   sku_name            = "Basic"
-  enable_non_ssl_port = false # Luôn dùng SSL
   minimum_tls_version = "1.2"
 
   # Cho phép truy cập từ Azure

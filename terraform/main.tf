@@ -19,6 +19,27 @@ resource "azurerm_subnet" "aks_subnet" {
   address_prefixes     = ["172.16.1.0/24"] # <-- ĐÃ THAY ĐỔI
 }
 
+# ---------------------------------------------------
+#  SUBNET MỚI CHO POSTGRES (ĐỂ TÍCH HỢP VNET)
+# ---------------------------------------------------
+resource "azurerm_subnet" "postgres_subnet" {
+  name                 = "snet-postgres-prod"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["172.16.2.0/24"] # Một dải IP mới, không trùng
+
+  # Yêu cầu đặc biệt: "ủy quyền" subnet này cho dịch vụ Postgres
+  delegation {
+    name = "fs"
+    service_delegation {
+      name = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = [
+        "Microsoft.Network/virtualNetworks/subnets/join/action",
+      ]
+    }
+  }
+}
+
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = "aks-${var.prefix}-prod"
   location            = azurerm_resource_group.rg.location

@@ -27,7 +27,7 @@ output "postgres_connection_string" {
 
 output "cosmos_connection_string" {
   description = "CosmosDB (MongoDB) connection string"
-  value       = azurerm_cosmosdb_account.cosmos.connection_strings[0]
+  value       = azurerm_cosmosdb_account.cosmos.primary_mongodb_connection_string
   sensitive   = true
 }
 
