@@ -1,13 +1,12 @@
-name: Build, Push, and Deploy (Production Ready)
+name: Test, Build, and Deploy (Production Ready)
 
-# Kích hoạt workflow khi có push lên nhánh 'main'
 on:
   push:
     branches:
       - main 
 
 env:
-  # Tên tài nguyên Terraform của bạn
+  # Tên tài nguyên Terraform
   ACR_NAME: "acruitgoprod"
   AKS_CLUSTER_NAME: "aks-uitgo-prod"
   RESOURCE_GROUP_NAME: "rg-uitgo-prod"
@@ -17,10 +16,47 @@ env:
 
 jobs:
   # ----------------------------------------------
-  #  GIAI ĐOẠN 1: BUILD (CI)
+  #  GIAI ĐOẠN 1: TEST (MỚI)
+  # ----------------------------------------------
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11' # Đổi nếu bạn dùng version khác
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Giả sử bạn có file requirements.txt trong thư mục tests
+          if [ -f tests/requirements.txt ]; then
+            pip install -r tests/requirements.txt
+          else
+            echo "tests/requirements.txt not found, installing default test packages"
+            pip install pytest requests
+          fi
+          
+          # Cài các dependencies mà code của bạn cần để import (ví dụ)
+          # Bạn cần cập nhật danh sách này cho đầy đủ
+          pip install fastapi uvicorn pydantic python-dotenv "passlib[bcrypt]"
+
+      - name: Run unit tests
+        run: |
+          # Giả sử các file test của bạn nằm trong thư mục tests/
+          pytest tests/
+        continue-on-error: false # Dừng lại nếu test fail
+
+  # ----------------------------------------------
+  #  GIAI ĐOẠN 2: BUILD (CI)
   # ----------------------------------------------
   build:
     runs-on: ubuntu-latest
+    needs: test # <-- QUAN TRỌNG: Phải chờ 'test' thành công
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -28,11 +64,14 @@ jobs:
     - name: Log in to Azure
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }} # Dùng secret bạn đã tạo
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Log in to ACR
-      run: |
-        az acr login --name ${{ env.ACR_NAME }}
+      uses: docker/login-action@v3 
+      with:
+        registry: ${{ env.ACR_NAME }}.azurecr.io
+        username: ${{ secrets.AZURE_CLIENT_ID }}
+        password: ${{ secrets.AZURE_CLIENT_SECRET }}
         
     - name: Build and push (LocationService)
       run: |
@@ -60,11 +99,11 @@ jobs:
         docker push ${{ env.ACR_NAME }}.azurecr.io/userservice:${{ github.sha }}
 
   # ----------------------------------------------
-  #  GIAI ĐOẠN 2: DEPLOY (CD)
+  #  GIAI ĐOẠN 3: DEPLOY (CD)
   # ----------------------------------------------
   deploy:
     runs-on: ubuntu-latest
-    needs: build # Phải chờ 'build' xong
+    needs: build
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -72,7 +111,7 @@ jobs:
     - name: Log in to Azure
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+        creds: ${{ secrets.AZURE_CREDENTIALS }} 
 
     - name: Set AKS context (Kết nối kubectl)
       uses: azure/aks-set-context@v3
@@ -80,40 +119,29 @@ jobs:
         resource-group: ${{ env.RESOURCE_GROUP_NAME }}
         cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-    # --- LẤY CHUỖI KẾT NỐI TỪ AZURE (ĐÃ SỬA LỖI) ---
     - name: Get Azure Service Connection Strings
-      id: azure-keys # Đặt ID để các bước sau gọi
+      id: azure-keys
       run: |
-        # Lấy Connection String của CosmosDB (Mongo)
         COSMOS_CS=$(az cosmosdb keys list --name ${{ env.COSMOS_DB_NAME }} --resource-group ${{ env.RESOURCE_GROUP_NAME }} --type connection-strings --query "connectionStrings[0].connectionString" -o tsv)
-        
-        # Lấy Host và Key của Redis
         REDIS_HOST=$(az redis show --name ${{ env.REDIS_CACHE_NAME }} --resource-group ${{ env.RESOURCE_GROUP_NAME }} --query "hostName" -o tsv)
         REDIS_KEY=$(az redis list-keys --name ${{ env.REDIS_CACHE_NAME }} --resource-group ${{ env.RESOURCE_GROUP_NAME }} --query "primaryKey" -o tsv)
-        
-        # Lấy thông tin Postgres (Host và User là cố định)
         POSTGRES_HOST="${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com"
         POSTGRES_USER="postgresadmin"
 
-        # Đặt các giá trị này làm output (SỬ DỤNG CÚ PHÁP MỚI)
         echo "COSMOS_CONNECTION_STRING=$COSMOS_CS" >> $GITHUB_OUTPUT
         echo "REDIS_HOST=$REDIS_HOST" >> $GITHUB_OUTPUT
         echo "REDIS_KEY=$REDIS_KEY" >> $GITHUB_OUTPUT
         echo "POSTGRES_HOST=$POSTGRES_HOST" >> $GITHUB_OUTPUT
         echo "POSTGRES_USER=$POSTGRES_USER" >> $GITHUB_OUTPUT
 
-    # --- TẠO K8S SECRETS ---
     - name: Create K8s Secrets
       env:
-        # Lấy output từ bước 'azure-keys'
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }} # Lấy từ GitHub Secret
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         COSMOS_CONNECTION_STRING: ${{ steps.azure-keys.outputs.COSMOS_CONNECTION_STRING }}
         REDIS_HOST: ${{ steps.azure-keys.outputs.REDIS_HOST }}
         REDIS_KEY: ${{ steps.azure-keys.outputs.REDIS_KEY }}
         POSTGRES_HOST: ${{ steps.azure-keys.outputs.POSTGRES_HOST }}
         POSTGRES_USER: ${{ steps.azure-keys.outputs.POSTGRES_USER }}
-        
-        # Lấy các secret khác từ GitHub Secrets
         JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
         MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
         TRIPSVC_CLIENT_ID: ${{ secrets.TRIPSVC_CLIENT_ID }}
@@ -140,7 +168,6 @@ jobs:
           --from-literal=VNP_URL=$VNP_URL \
         | kubectl apply -f -
 
-    # --- CẬP NHẬT TAG IMAGE MỚI ---
     - name: Update K8s manifests with new image tag
       run: |
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/locationservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/locationservice:${{ github.sha }}|g' k8s/locationservice.yaml
@@ -149,7 +176,6 @@ jobs:
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/paymentservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/paymentservice:${{ github.sha }}|g' k8s/paymentservice.yaml
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/userservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/userservice:${{ github.sha }}|g' k8s/userservice.yaml
 
-    # --- DEPLOY 5 FILE .YAML CỦA ỨNG DỤNG ---
     - name: Deploy all K8s manifests
       run: |
         kubectl apply -f k8s/locationservice.yaml
@@ -157,3 +183,66 @@ jobs:
         kubectl apply -f k8s/driverservice.yaml
         kubectl apply -f k8s/paymentservice.yaml
         kubectl apply -f k8s/userservice.yaml
+
+  # ----------------------------------------------
+  #  GIAI ĐOẠN 4: SMOKE TEST (MỚI)
+  # ----------------------------------------------
+  smoke_test:
+    name: Run Smoke Tests (Post-Deploy)
+    runs-on: ubuntu-latest
+    needs: deploy # Phải chờ 'deploy' xong
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: ${{ env.RESOURCE_GROUP_NAME }}
+          cluster-name: ${{ env.AKS_CLUSTER_NAME }}
+      
+      - name: Get Public IP and Run Smoke Test
+        run: |
+          echo "Waiting for Load Balancer IP..."
+          # Chờ tối đa 2 phút để IP public xuất hiện
+          PUBLIC_IP=$(kubectl get service userservice -o jsonpath='{.status.loadBalancer.ingress[0].ip}' --timeout=120s)
+          
+          if [ -z "$PUBLIC_IP" ]; then
+            echo "::error::Failed to get Public IP for userservice."
+            exit 1
+          fi
+
+          echo "Public IP found: $PUBLIC_IP"
+          echo "API_URL=http://$PUBLIC_IP" >> $GITHUB_ENV
+          
+          # Chờ 10s để service sẵn sàng
+          sleep 10 
+          
+          # Chạy script test
+          # Giả sử bạn có file smoke_test.py trong thư mục tests/
+          if [ -f tests/smoke_test.py ]; then
+            python tests/smoke_test.py
+          else
+            echo "tests/smoke_test.py not found. Testing /docs endpoint."
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://$PUBLIC_IP/docs)
+            if [ "$response" -eq 200 ]; then
+              echo "Smoke test PASSED: /docs endpoint returned 200."
+            else
+              echo "::error::Smoke test FAILED: /docs endpoint returned $response."
+              exit 1
+            fi
+          fi
+
