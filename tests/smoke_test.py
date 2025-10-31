@@ -121,12 +121,24 @@ def _test_userservice_login() -> Dict[str, str]:
 
     try:
         # Register user
-        requests.post(f"{BASE_URL}/auth/register", json=register_payload, timeout=10)
+        # Chúng ta dùng _test_userservice_registration để đảm bảo user được tạo đúng
+        reg_payload = {
+            "username": f"logintest_{timestamp}",
+            "email": f"logintest_{timestamp}@test.com",
+            "password": "testpass123",
+            "full_name": "Login Test User",
+            "user_type": "PASSENGER"
+        }
+        reg_response = requests.post(f"{BASE_URL}/auth/register", json=reg_payload, timeout=10)
+        
+        if reg_response.status_code != 201 and reg_response.status_code != 400:
+             log_test(f"User login: FAILED (Không thể tạo user để test login, lỗi: {reg_response.text})", "fail")
+             return {}
 
         # Login
         login_data = {
-            "username": register_payload["email"],
-            "password": register_payload["password"]
+            "username": reg_payload["email"],
+            "password": reg_payload["password"]
         }
 
         response = requests.post(
@@ -145,6 +157,7 @@ def _test_userservice_login() -> Dict[str, str]:
                 return {}
         else:
             log_test(f"User login: FAILED with status {response.status_code}", "fail")
+            print(f"Response: {response.text}")
             return {}
 
     except requests.exceptions.RequestException as e:
