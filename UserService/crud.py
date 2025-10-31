@@ -67,10 +67,15 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
     existing_user = await get_user_by_email(db, email=user_data.email)
     if existing_user:
         raise ValueError("Email đã được đăng ký")
+
+    # Hash password trước khi tạo dict
     hashed_password = get_password_hash(user_data.password)
-    user_data.password = hashed_password
+
+    # Tạo dict từ user_data, loại bỏ password gốc
     user_data_dict = user_data.model_dump(exclude={"password"}, exclude_none=True)
+    # Thêm hashed password vào dict
     user_data_dict["password"] = hashed_password
+
     db_user = UserTable(**user_data_dict) 
     
     

@@ -14,7 +14,7 @@ class TokenData(BaseModel):
 class UserCreate(BaseModel):
     username: str = Field(..., max_length=100)
     email: EmailStr
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=8, max_length=72)
     full_name: Optional[str] = Field(None, max_length=255)
     phone: Optional[str] = None
     user_type: UserTypeEnum
