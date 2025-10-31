@@ -65,5 +65,9 @@ service-account.json
 deploy-fix-*.sh
 deploy-fix-*.ps1
 
+# Security and cleanup docs (temporary)
+SECURITY_CLEANUP.md
+GIT_HISTORY_CLEANED.md
+
 # Claude Code AI Instructions
 CLAUDE.md
