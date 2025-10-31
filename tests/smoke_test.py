@@ -6,10 +6,13 @@ Run after deploying to verify basic functionality
 import requests
 import sys
 import time
+import os  # <-- THÊM IMPORT NÀY
 from typing import Dict
 
-# Azure Production URL
-BASE_URL = "http://4.144.174.255"
+# --- SỬA LỖI: Đọc IP động từ Biến Môi Trường (do CI cung cấp) ---
+# Lấy URL từ biến môi trường (do job 'smoke_test' trong deploy.yml cung cấp)
+BASE_URL = os.environ.get("API_URL") 
+# --- KẾT THÚC SỬA LỖI ---
 
 # Internal service URLs (only accessible from within cluster)
 INTERNAL_SERVICES = {
@@ -39,7 +42,8 @@ def log_test(message: str, status: str = "info"):
     symbol = "✅" if status == "pass" else "❌" if status == "fail" else "ℹ️"
     print(f"{color}{symbol} {message}{Color.END}")
 
-def test_health_endpoint(service_name: str, url: str) -> bool:
+# Đổi tên hàm (thêm _) để Pytest (trong job 'test') tự động bỏ qua
+def _test_health_endpoint(service_name: str, url: str) -> bool:
     """Test health endpoint of a service"""
     try:
         response = requests.get(f"{url}/health", timeout=10)
@@ -59,7 +63,8 @@ def test_health_endpoint(service_name: str, url: str) -> bool:
         log_test(f"{service_name}: Health check failed - {str(e)}", "fail")
         return False
 
-def test_userservice_registration() -> bool:
+# Đổi tên hàm (thêm _) để Pytest (trong job 'test') tự động bỏ qua
+def _test_userservice_registration() -> bool:
     """Test user registration flow"""
     log_test("Testing user registration...", "info")
 
@@ -71,7 +76,8 @@ def test_userservice_registration() -> bool:
         "password": "testpass123",
         "full_name": "Smoke Test User",
         "phone": f"09{timestamp % 100000000}",
-        "user_type": "passenger"
+        # --- SỬA LỖI 422: Đổi thành chữ hoa ---
+        "user_type": "PASSENGER"
     }
 
     try:
@@ -97,7 +103,8 @@ def test_userservice_registration() -> bool:
         log_test(f"User registration: FAILED - {str(e)}", "fail")
         return False
 
-def test_userservice_login() -> Dict[str, str]:
+# Đổi tên hàm (thêm _) để Pytest (trong job 'test') tự động bỏ qua
+def _test_userservice_login() -> Dict[str, str]:
     """Test user login flow"""
     log_test("Testing user login...", "info")
 
@@ -108,7 +115,8 @@ def test_userservice_login() -> Dict[str, str]:
         "email": f"logintest_{timestamp}@test.com",
         "password": "testpass123",
         "full_name": "Login Test User",
-        "user_type": "passenger"
+        # --- SỬA LỖI 422: Đổi thành chữ hoa ---
+        "user_type": "PASSENGER"
     }
 
     try:
@@ -143,7 +151,8 @@ def test_userservice_login() -> Dict[str, str]:
         log_test(f"User login: FAILED - {str(e)}", "fail")
         return {}
 
-def test_root_endpoint() -> bool:
+# Đổi tên hàm (thêm _) để Pytest (trong job 'test') tự động bỏ qua
+def _test_root_endpoint() -> bool:
     """Test root endpoint"""
     try:
         response = requests.get(f"{BASE_URL}/", timeout=10)
@@ -154,7 +163,7 @@ def test_root_endpoint() -> bool:
                 log_test(f"Root endpoint: {data.get('service', 'Unknown')} - {data.get('status', 'Unknown')}", "pass")
                 return True
 
-        log_test("Root endpoint: FAILED", "fail")
+        log_test(f"Root endpoint: FAILED (Status: {response.status_code})", "fail")
         return False
 
     except requests.exceptions.RequestException as e:
@@ -167,26 +176,32 @@ def run_smoke_tests():
     print("🔥 UIT-Go Smoke Tests")
     print("="*60 + "\n")
 
+    # --- SỬA LỖI: Kiểm tra BASE_URL trước khi chạy ---
+    if not BASE_URL:
+        log_test("Biến môi trường API_URL không được đặt. Thoát...", "fail")
+        return 1
+    # --- KẾT THÚC SỬA LỖI ---
+
     results = []
 
     # Test 1: Root endpoint
-    log_test("Test 1: Root Endpoint", "info")
-    results.append(test_root_endpoint())
+    log_test(f"Test 1: Root Endpoint ({BASE_URL}/)", "info")
+    results.append(_test_root_endpoint()) # Đổi tên hàm
     print()
 
     # Test 2: Health check
-    log_test("Test 2: Health Check", "info")
-    results.append(test_health_endpoint("UserService", BASE_URL))
+    log_test(f"Test 2: Health Check ({BASE_URL}/health)", "info")
+    results.append(_test_health_endpoint("UserService", BASE_URL)) # Đổi tên hàm
     print()
 
     # Test 3: User registration
-    log_test("Test 3: User Registration", "info")
-    results.append(test_userservice_registration())
+    log_test(f"Test 3: User Registration ({BASE_URL}/auth/register)", "info")
+    results.append(_test_userservice_registration()) # Đổi tên hàm
     print()
 
     # Test 4: User login
-    log_test("Test 4: User Login", "info")
-    token_data = test_userservice_login()
+    log_test(f"Test 4: User Login ({BASE_URL}/auth/login)", "info")
+    token_data = _test_userservice_login() # Đổi tên hàm
     results.append(bool(token_data))
     print()
 
@@ -207,3 +222,4 @@ def run_smoke_tests():
 if __name__ == "__main__":
     exit_code = run_smoke_tests()
     sys.exit(exit_code)
+
