@@ -18,20 +18,8 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     # Bcrypt chỉ hỗ trợ tối đa 72 bytes, truncate nếu cần
-    import logging
-    logger = logging.getLogger(__name__)
-
-    password_bytes = password.encode('utf-8')
-    logger.info(f"Password length: {len(password)} chars, {len(password_bytes)} bytes")
-
-    if len(password_bytes) > 72:
-        logger.warning(f"Password too long ({len(password_bytes)} bytes), truncating to 72 bytes")
-        # Truncate an toàn
-        password_bytes = password_bytes[:72]
-        # Decode lại, bỏ qua ký tự bị cắt không hợp lệ
-        password = password_bytes.decode('utf-8', errors='ignore')
-        logger.info(f"Truncated password: {len(password)} chars")
-
+    if len(password.encode('utf-8')) > 72:
+        password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
     return pwd_context.hash(password)
 
 # --- Tạo JWT ---
