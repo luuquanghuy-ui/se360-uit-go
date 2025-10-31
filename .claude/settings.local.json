@@ -3,7 +3,13 @@
     "allow": [
       "Bash(rm:*)",
       "Bash(mv:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []
