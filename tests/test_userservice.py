@@ -6,6 +6,10 @@ import pytest
 import sys
 import os
 
+# Set required environment variables BEFORE importing modules
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-unit-tests-only-32chars-minimum")
+os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+
 # Add UserService to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'UserService'))
 
