@@ -30,7 +30,9 @@ _token_expiry_time: Optional[datetime] = None
 
 
 # Mapbox API configuration
-MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "pk.your_mapbox_token_here")
+MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN")
+if not MAPBOX_ACCESS_TOKEN:
+    raise ValueError("MAPBOX_ACCESS_TOKEN environment variable is required")
 LOCATION_SERVICE_URL = os.getenv("LOCATION_SERVICE_URL", "http://locationservice:8000")
 DRIVER_SERVICE_URL = os.getenv("DRIVER_SERVICE_URL", "http://driverservice:8000")
 def convert_objectid(doc):

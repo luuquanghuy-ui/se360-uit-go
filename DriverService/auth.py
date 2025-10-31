@@ -6,7 +6,9 @@ from passlib.context import CryptContext
 import os
 from fastapi import HTTPException, status 
 
-SECRET_KEY = os.getenv("SECRET_KEY", "a55d72bab7476385e3114ea4cdd7eff2a7f0bc1bdb690dc4d539f0367c3b3d63")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is required")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 

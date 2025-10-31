@@ -51,9 +51,19 @@ dist/
 build/
 *.egg-info/
 
-# Env
+# Env & Secrets
 .env
 .env.*
+*.pem
+*.key
+*.crt
+secrets/
+credentials.json
+service-account.json
+
+# Temporary deployment scripts
+deploy-fix-*.sh
+deploy-fix-*.ps1
 
 # Claude Code AI Instructions
 CLAUDE.md
