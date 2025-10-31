@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "admin")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-if not POSTGRES_PASSWORD:
-    raise ValueError("POSTGRES_PASSWORD environment variable is required")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "default-password")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "mydb")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 
