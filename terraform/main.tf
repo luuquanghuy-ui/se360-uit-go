@@ -56,4 +56,16 @@ resource "azurerm_kubernetes_cluster" "aks" {
   identity {
     type = "SystemAssigned"
   }
+  oms_agent {
+    log_analytics_workspace_id = azurerm_log_analytics_workspace.logs.id
+    msi_auth_for_monitoring_enabled = true # Dùng identity để xác thực
+  }
+}
+
+resource "azurerm_log_analytics_workspace" "logs" {
+  name                = "logs-${var.prefix}-prod"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30 # Lưu log trong 30 ngày
 }
