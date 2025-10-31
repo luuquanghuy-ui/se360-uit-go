@@ -65,12 +65,11 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+    # --- THAY ĐỔI CÁCH ĐĂNG NHẬP ACR THEO YÊU CẦU CỦA BẠN ---
     - name: Log in to ACR
-      uses: docker/login-action@v3 
-      with:
-        registry: ${{ env.ACR_NAME }}.azurecr.io
-        username: ${{ secrets.AZURE_CLIENT_ID }}
-        password: ${{ secrets.AZURE_CLIENT_SECRET }}
+      run: |
+        az acr login --name ${{ env.ACR_NAME }}
+    # --- HẾT THAY ĐỔI ---
         
     - name: Build and push (LocationService)
       run: |
