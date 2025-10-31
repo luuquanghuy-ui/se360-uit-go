@@ -1,39 +1,38 @@
 name: Build, Push, and Deploy (Production Ready)
 
+# Kích hoạt workflow khi có push lên nhánh 'main'
 on:
   push:
     branches:
       - main 
 
 env:
-  # Tên tài nguyên Terraform CHÍNH XÁC của bạn
+  # Tên tài nguyên Terraform của bạn
   ACR_NAME: "acruitgoprod"
   AKS_CLUSTER_NAME: "aks-uitgo-prod"
-  RESOURCE_GROUP_NAME: "rg-uitgo-prod" # <--- SỬ DỤNG TÊN ĐÚNG
+  RESOURCE_GROUP_NAME: "rg-uitgo-prod"
   COSMOS_DB_NAME: "cosmos-uitgo-prod"
   POSTGRES_SERVER_NAME: "psql-uitgo-prod"
   REDIS_CACHE_NAME: "redis-uitgo-prod"
 
 jobs:
+  # ----------------------------------------------
+  #  GIAI ĐOẠN 1: BUILD (CI)
+  # ----------------------------------------------
   build:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    # --- ĐĂNG NHẬẬP VÀO AZURE ---
     - name: Log in to Azure
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }} # Dùng file JSON
+        creds: ${{ secrets.AZURE_CREDENTIALS }} # Dùng secret bạn đã tạo
 
-    # --- ĐĂNG NHẬP VÀO DOCKER/ACR ---
     - name: Log in to ACR
-      uses: docker/login-action@v3 
-      with:
-        registry: ${{ env.ACR_NAME }}.azurecr.io
-        username: ${{ secrets.AZURE_CLIENT_ID }}     # Dùng Client ID
-        password: ${{ secrets.AZURE_CLIENT_SECRET }} # Dùng Client Secret
+      run: |
+        az acr login --name ${{ env.ACR_NAME }}
         
     - name: Build and push (LocationService)
       run: |
@@ -60,9 +59,12 @@ jobs:
         docker build ./UserService -t ${{ env.ACR_NAME }}.azurecr.io/userservice:${{ github.sha }}
         docker push ${{ env.ACR_NAME }}.azurecr.io/userservice:${{ github.sha }}
 
+  # ----------------------------------------------
+  #  GIAI ĐOẠN 2: DEPLOY (CD)
+  # ----------------------------------------------
   deploy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build # Phải chờ 'build' xong
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -70,39 +72,48 @@ jobs:
     - name: Log in to Azure
       uses: azure/login@v1
       with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }} 
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Set AKS context (Kết nối kubectl)
       uses: azure/aks-set-context@v3
       with:
-        resource-group: ${{ env.RESOURCE_GROUP_NAME }} # <--- SỬ DỤNG TÊN ĐÚNG
-        cluster-name: ${{ env.AKS_CLUSTER_NAME }}   # <--- SỬ DỤNG TÊN ĐÚNG
+        resource-group: ${{ env.RESOURCE_GROUP_NAME }}
+        cluster-name: ${{ env.AKS_CLUSTER_NAME }}
 
-    # --- LẤY CHUỖI KẾT NỐI (BẮT BUỘC) ---
+    # --- LẤY CHUỖI KẾT NỐI TỪ AZURE (ĐÃ SỬA LỖI) ---
     - name: Get Azure Service Connection Strings
-      id: azure-keys
+      id: azure-keys # Đặt ID để các bước sau gọi
       run: |
+        # Lấy Connection String của CosmosDB (Mongo)
         COSMOS_CS=$(az cosmosdb keys list --name ${{ env.COSMOS_DB_NAME }} --resource-group ${{ env.RESOURCE_GROUP_NAME }} --type connection-strings --query "connectionStrings[0].connectionString" -o tsv)
+        
+        # Lấy Host và Key của Redis
         REDIS_HOST=$(az redis show --name ${{ env.REDIS_CACHE_NAME }} --resource-group ${{ env.RESOURCE_GROUP_NAME }} --query "hostName" -o tsv)
         REDIS_KEY=$(az redis list-keys --name ${{ env.REDIS_CACHE_NAME }} --resource-group ${{ env.RESOURCE_GROUP_NAME }} --query "primaryKey" -o tsv)
+        
+        # Lấy thông tin Postgres (Host và User là cố định)
         POSTGRES_HOST="${{ env.POSTGRES_SERVER_NAME }}.postgres.database.azure.com"
         POSTGRES_USER="postgresadmin"
 
+        # Đặt các giá trị này làm output (SỬ DỤNG CÚ PHÁP MỚI)
         echo "COSMOS_CONNECTION_STRING=$COSMOS_CS" >> $GITHUB_OUTPUT
         echo "REDIS_HOST=$REDIS_HOST" >> $GITHUB_OUTPUT
         echo "REDIS_KEY=$REDIS_KEY" >> $GITHUB_OUTPUT
         echo "POSTGRES_HOST=$POSTGRES_HOST" >> $GITHUB_OUTPUT
         echo "POSTGRES_USER=$POSTGRES_USER" >> $GITHUB_OUTPUT
 
-    # --- TẠO SECRETS (BẮT BUỘC) ---
+    # --- TẠO K8S SECRETS ---
     - name: Create K8s Secrets
       env:
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        # Lấy output từ bước 'azure-keys'
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }} # Lấy từ GitHub Secret
         COSMOS_CONNECTION_STRING: ${{ steps.azure-keys.outputs.COSMOS_CONNECTION_STRING }}
         REDIS_HOST: ${{ steps.azure-keys.outputs.REDIS_HOST }}
         REDIS_KEY: ${{ steps.azure-keys.outputs.REDIS_KEY }}
         POSTGRES_HOST: ${{ steps.azure-keys.outputs.POSTGRES_HOST }}
         POSTGRES_USER: ${{ steps.azure-keys.outputs.POSTGRES_USER }}
+        
+        # Lấy các secret khác từ GitHub Secrets
         JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
         MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
         TRIPSVC_CLIENT_ID: ${{ secrets.TRIPSVC_CLIENT_ID }}
@@ -129,7 +140,7 @@ jobs:
           --from-literal=VNP_URL=$VNP_URL \
         | kubectl apply -f -
 
-    # --- CẬP NHẬT TAG IMAGE ---
+    # --- CẬP NHẬT TAG IMAGE MỚI ---
     - name: Update K8s manifests with new image tag
       run: |
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/locationservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/locationservice:${{ github.sha }}|g' k8s/locationservice.yaml
@@ -138,7 +149,7 @@ jobs:
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/paymentservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/paymentservice:${{ github.sha }}|g' k8s/paymentservice.yaml
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/userservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/userservice:${{ github.sha }}|g' k8s/userservice.yaml
 
-    # --- DEPLOY BẰNG KUBECTL APPLY (CÁCH ĐÚNG) ---
+    # --- DEPLOY 5 FILE .YAML CỦA ỨNG DỤNG ---
     - name: Deploy all K8s manifests
       run: |
         kubectl apply -f k8s/locationservice.yaml
@@ -146,4 +157,3 @@ jobs:
         kubectl apply -f k8s/driverservice.yaml
         kubectl apply -f k8s/paymentservice.yaml
         kubectl apply -f k8s/userservice.yaml
-
