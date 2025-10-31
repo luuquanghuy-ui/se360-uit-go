@@ -54,3 +54,6 @@ build/
 # Env
 .env
 .env.*
+
+# Claude Code AI Instructions
+CLAUDE.md

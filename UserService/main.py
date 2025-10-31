@@ -72,12 +72,15 @@ async def register_user(
     db: AsyncSession = Depends(get_db)
 ):
     # Dùng hàm crud mới, truyền db
+    logger.info(f"UserService: Nhận yêu cầu đăng ký cho email: {user_in.email}")
     try:
         created_user = await crud.create_user(db=db, user_data=user_in)
         # Hàm crud trả về Pydantic User, FastAPI tự serialize
+        logger.info(f"UserService: Tạo user thành công: {created_user.email}")
         return created_user
     except ValueError as e:
          # Lỗi ValueError sẽ là lỗi unique constraint (email, phone) hoặc email đã đăng ký
+         logger.warning(f"UserService: Validation error khi đăng ký: {str(e)}")
          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
          logger.error(f"UserService: Lỗi khi tạo user: {e}", exc_info=True)
