@@ -46,7 +46,7 @@ jobs:
     name: Build UserService
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && false  # Disabled temporarily
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
 
     steps:
       - name: Checkout code
@@ -74,7 +74,7 @@ jobs:
     name: Build TripService
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && false  # Disabled temporarily
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -100,7 +100,7 @@ jobs:
     name: Build DriverService
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && false  # Disabled temporarily
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -126,7 +126,7 @@ jobs:
     name: Build LocationService
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && false  # Disabled temporarily
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -152,7 +152,7 @@ jobs:
     name: Build PaymentService
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && false  # Disabled temporarily
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -178,7 +178,7 @@ jobs:
     name: Deploy to AKS
     needs: [build-userservice, build-tripservice, build-driverservice, build-locationservice, build-paymentservice]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && false  # Disabled temporarily
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -227,7 +227,7 @@ jobs:
     name: Run Smoke Tests
     needs: deploy
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && false  # Disabled temporarily
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
