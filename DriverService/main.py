@@ -76,6 +76,20 @@ async def get_current_driver(
 def read_root():
     return {"service": "UIT-Go Driver Service", "status": "running"}
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Kubernetes probes"""
+    try:
+        from database import db
+        await db.command("ping")
+        return {
+            "status": "healthy",
+            "service": "driverservice",
+            "database": "connected"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail="Service unhealthy")
+
 
 @app.post("/drivers/", response_model=schemas.DriverResponse, status_code=status.HTTP_201_CREATED)
 async def create_driver_profile_endpoint(

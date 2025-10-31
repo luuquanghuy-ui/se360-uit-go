@@ -1,0 +1,35 @@
+# Template for health check configuration
+# Copy this to each service deployment YAML
+
+# Liveness Probe: Kiểm tra service còn sống không
+# Kubernetes sẽ restart pod nếu fail
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 30  # Đợi 30s sau khi start
+  periodSeconds: 10        # Kiểm tra mỗi 10s
+  timeoutSeconds: 5        # Timeout sau 5s
+  failureThreshold: 3      # Restart sau 3 lần fail liên tiếp
+
+# Readiness Probe: Kiểm tra service sẵn sàng nhận traffic
+# Kubernetes sẽ remove pod khỏi load balancer nếu fail
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 5   # Đợi 5s sau khi start
+  periodSeconds: 5         # Kiểm tra mỗi 5s
+  timeoutSeconds: 3        # Timeout sau 3s
+  failureThreshold: 2      # Remove sau 2 lần fail liên tiếp
+
+# Startup Probe: Cho service thời gian khởi động
+# Tránh restart pod khi service đang startup chậm
+startupProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 0
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 30     # Cho tối đa 5 phút để startup (30 * 10s)

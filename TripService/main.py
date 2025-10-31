@@ -25,6 +25,22 @@ app = FastAPI(title="UIT-Go Trip Service (MongoDB)", version="1.0.0")
 async def get_service_info():
     return {"service": "UIT-Go Trip Service", "version": "1.0", "status": "running", "database": "MongoDB"}
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Kubernetes probes"""
+    try:
+        # Test MongoDB connection
+        from database import db
+        await db.command("ping")
+        return {
+            "status": "healthy",
+            "service": "tripservice",
+            "database": "connected"
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Service unhealthy")
+
 # Trip CRUD routes
 # New flow: FE sends coordinates -> BE returns fare estimates for all vehicle types
 @app.post("/fare-estimate/", response_model=schemas.FareEstimateResponse)

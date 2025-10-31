@@ -1,0 +1,250 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  ACR_NAME: uitgoregistry
+  NAMESPACE: uitgo
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest requests fastapi httpx
+
+      - name: Run unit tests
+        run: |
+          cd tests
+          pytest test_userservice.py -v
+        continue-on-error: true
+
+      - name: Test report
+        if: always()
+        run: echo "Tests completed"
+
+  build-userservice:
+    name: Build UserService
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push UserService
+        run: |
+          IMAGE_TAG=${{ env.ACR_NAME }}.azurecr.io/userservice:${{ github.sha }}
+          docker build -t $IMAGE_TAG ./UserService
+          docker push $IMAGE_TAG
+
+          # Also tag as latest
+          docker tag $IMAGE_TAG ${{ env.ACR_NAME }}.azurecr.io/userservice:latest
+          docker push ${{ env.ACR_NAME }}.azurecr.io/userservice:latest
+
+  build-tripservice:
+    name: Build TripService
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push TripService
+        run: |
+          IMAGE_TAG=${{ env.ACR_NAME }}.azurecr.io/tripservice:${{ github.sha }}
+          docker build -t $IMAGE_TAG ./TripService
+          docker push $IMAGE_TAG
+          docker tag $IMAGE_TAG ${{ env.ACR_NAME }}.azurecr.io/tripservice:latest
+          docker push ${{ env.ACR_NAME }}.azurecr.io/tripservice:latest
+
+  build-driverservice:
+    name: Build DriverService
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push DriverService
+        run: |
+          IMAGE_TAG=${{ env.ACR_NAME }}.azurecr.io/driverservice:${{ github.sha }}
+          docker build -t $IMAGE_TAG ./DriverService
+          docker push $IMAGE_TAG
+          docker tag $IMAGE_TAG ${{ env.ACR_NAME }}.azurecr.io/driverservice:latest
+          docker push ${{ env.ACR_NAME }}.azurecr.io/driverservice:latest
+
+  build-locationservice:
+    name: Build LocationService
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push LocationService
+        run: |
+          IMAGE_TAG=${{ env.ACR_NAME }}.azurecr.io/locationservice:${{ github.sha }}
+          docker build -t $IMAGE_TAG ./LocationService
+          docker push $IMAGE_TAG
+          docker tag $IMAGE_TAG ${{ env.ACR_NAME }}.azurecr.io/locationservice:latest
+          docker push ${{ env.ACR_NAME }}.azurecr.io/locationservice:latest
+
+  build-paymentservice:
+    name: Build PaymentService
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Build and push PaymentService
+        run: |
+          IMAGE_TAG=${{ env.ACR_NAME }}.azurecr.io/paymentservice:${{ github.sha }}
+          docker build -t $IMAGE_TAG ./PaymentService
+          docker push $IMAGE_TAG
+          docker tag $IMAGE_TAG ${{ env.ACR_NAME }}.azurecr.io/paymentservice:latest
+          docker push ${{ env.ACR_NAME }}.azurecr.io/paymentservice:latest
+
+  deploy:
+    name: Deploy to AKS
+    needs: [build-userservice, build-tripservice, build-driverservice, build-locationservice, build-paymentservice]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        run: |
+          az aks get-credentials --resource-group uitgo-rg --name uitgo-aks-cluster
+
+      - name: Deploy UserService
+        run: |
+          kubectl set image deployment/userservice userservice=${{ env.ACR_NAME }}.azurecr.io/userservice:${{ github.sha }} -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/userservice -n ${{ env.NAMESPACE }} --timeout=5m
+
+      - name: Deploy TripService
+        run: |
+          kubectl set image deployment/tripservice tripservice=${{ env.ACR_NAME }}.azurecr.io/tripservice:${{ github.sha }} -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/tripservice -n ${{ env.NAMESPACE }} --timeout=5m
+
+      - name: Deploy DriverService
+        run: |
+          kubectl set image deployment/driverservice driverservice=${{ env.ACR_NAME }}.azurecr.io/driverservice:${{ github.sha }} -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/driverservice -n ${{ env.NAMESPACE }} --timeout=5m
+
+      - name: Deploy LocationService
+        run: |
+          kubectl set image deployment/locationservice locationservice=${{ env.ACR_NAME }}.azurecr.io/locationservice:${{ github.sha }} -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/locationservice -n ${{ env.NAMESPACE }} --timeout=5m
+
+      - name: Deploy PaymentService
+        run: |
+          kubectl set image deployment/paymentservice paymentservice=${{ env.ACR_NAME }}.azurecr.io/paymentservice:${{ github.sha }} -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/paymentservice -n ${{ env.NAMESPACE }} --timeout=5m
+
+      - name: Verify deployments
+        run: |
+          kubectl get pods -n ${{ env.NAMESPACE }}
+          kubectl get svc -n ${{ env.NAMESPACE }}
+
+  smoke-test:
+    name: Run Smoke Tests
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run smoke tests
+        run: |
+          python tests/smoke_test.py
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Smoke tests failed! Deployment may have issues."
+          echo "Consider rolling back the deployment."

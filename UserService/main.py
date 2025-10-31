@@ -5,7 +5,8 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from datetime import timedelta
 from typing import List, AsyncGenerator
 from contextlib import asynccontextmanager
-from sqlalchemy.ext.asyncio import AsyncSession 
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 import logging
 import crud
 import models
@@ -189,3 +190,18 @@ app.include_router(users_router)
 @app.get("/")
 async def root():
     return {"service": "UIT-Go User Service (PostgreSQL)", "status": "running"}
+
+@app.get("/health")
+async def health_check(db: AsyncSession = Depends(get_db)):
+    """Health check endpoint for Kubernetes probes"""
+    try:
+        # Test database connection
+        await db.execute(text("SELECT 1"))
+        return {
+            "status": "healthy",
+            "service": "userservice",
+            "database": "connected"
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Service unhealthy")

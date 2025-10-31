@@ -165,3 +165,17 @@ async def handle_vnpay_return_message(request: Request):
 @app.get("/")
 async def root():
     return {"service": "UIT-Go Payment Service", "status": "running"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Kubernetes probes"""
+    try:
+        from database import db
+        await db.command("ping")
+        return {
+            "status": "healthy",
+            "service": "paymentservice",
+            "database": "connected"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail="Service unhealthy")

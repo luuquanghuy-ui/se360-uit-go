@@ -11,6 +11,26 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="UIT-Go Location Service (Redis + WebSocket)", version="1.0.0")
 
+@app.get("/")
+async def root():
+    return {"service": "UIT-Go Location Service", "status": "running"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for Kubernetes probes"""
+    try:
+        import crud
+        # Test Redis connection
+        result = await crud.redis_client.ping()
+        return {
+            "status": "healthy",
+            "service": "locationservice",
+            "database": "connected" if result else "disconnected"
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Service unhealthy")
+
 class TripConnectionManager:
     def __init__(self):
         self.active_rooms: Dict[str, Dict[str, WebSocket]] = {}
