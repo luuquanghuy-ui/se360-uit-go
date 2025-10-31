@@ -180,11 +180,15 @@ jobs:
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/paymentservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/paymentservice:${{ github.sha }}|g' k8s/paymentservice.yaml
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/userservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/userservice:${{ github.sha }}|g' k8s/userservice.yaml
 
-    # --- DEPLOY 5 FILE .YAML CỦA ỨNG DỤNG ---
+    # --- DEPLOY 5 FILE .YAML CỦA ỨNG DỤNG (ĐÃ SỬA LỖI) ---
     - name: Deploy all K8s manifests
       run: |
-        # Áp dụng tất cả file trong thư mục k8s
-        kubectl apply -f k8s/
+        # Chỉ áp dụng 5 file service, bỏ qua các file rác
+        kubectl apply -f k8s/locationservice.yaml
+        kubectl apply -f k8s/tripservice.yaml
+        kubectl apply -f k8s/driverservice.yaml
+        kubectl apply -f k8s/paymentservice.yaml
+        kubectl apply -f k8s/userservice.yaml
 
   # ----------------------------------------------
   #  GIAI ĐOẠN 4: SMOKE TEST
@@ -246,4 +250,3 @@ jobs:
       run: |
         python tests/smoke_test.py
 
-  # ----------------------------------------------
