@@ -22,7 +22,8 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest requests fastapi httpx sqlalchemy pydantic python-jose passlib bcrypt
+          pip install -r tests/requirements.txt
+          pip install python-jose passlib bcrypt pydantic python-dotenv
 
       - name: Run UserService tests
         run: |

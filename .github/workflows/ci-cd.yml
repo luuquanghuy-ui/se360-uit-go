@@ -7,8 +7,10 @@ on:
     branches: [main]
 
 env:
-  ACR_NAME: uitgoregistry
+  ACR_NAME: ${{ secrets.ACR_NAME || 'uitgoregistry' }}
   NAMESPACE: uitgo
+  RESOURCE_GROUP: uitgo-rg
+  AKS_CLUSTER: uitgo-aks-cluster
 
 jobs:
   test:
@@ -24,16 +26,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest requests fastapi httpx
+          pip install -r tests/requirements.txt
+          pip install python-jose passlib bcrypt pydantic python-dotenv
 
       - name: Run unit tests
         run: |
-          cd tests
-          pytest test_userservice.py -v
-        continue-on-error: true
+          pytest tests/test_userservice.py -v --tb=short
+        continue-on-error: false
 
       - name: Test report
         if: always()
@@ -188,7 +190,7 @@ jobs:
 
       - name: Set AKS context
         run: |
-          az aks get-credentials --resource-group uitgo-rg --name uitgo-aks-cluster
+          az aks get-credentials --resource-group ${{ env.RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER }}
 
       - name: Deploy UserService
         run: |
