@@ -189,8 +189,7 @@ async def top_up_driver_wallet(request: schemas.TopUpRequest) -> Optional[Dict[s
         logger.error(f"Lỗi khi cập nhật số dư cho ví của tài xế {request.driver_id}")
         return None
 
-async def handle_vnpay_return(vnpay_response_data: Dict[str, Any]) -> bool:
-    # ... (Giữ nguyên code của bạn, thêm logger và kiểm tra secret hash) ...
+async def handle_vnpay_return(vnpay_response_data: Dict[str, Any]) -> bool: 
     transactions_coll: Optional[AsyncIOMotorCollection] = await get_transactions_collection()
     if not transactions_coll: return False
 
@@ -210,7 +209,6 @@ async def handle_vnpay_return(vnpay_response_data: Dict[str, Any]) -> bool:
 
     if calculated_secure_hash != received_secure_hash:
         logger.error(f"VNPay Callback: Sai Secure Hash! Giao dịch có thể không hợp lệ. TxnRef: {vnpay_response_data.get('vnp_TxnRef')}")
-        # Nên trả về lỗi hoặc không xử lý tiếp
         return False
     else:
         logger.info(f"VNPay Callback: Secure Hash hợp lệ. TxnRef: {vnpay_response_data.get('vnp_TxnRef')}")
@@ -330,7 +328,7 @@ async def get_trip_details(trip_id: str) -> Optional[Dict[str, Any]]:
             # Giả sử API này không cần xác thực đặc biệt khi gọi nội bộ
             # Nếu cần Service Token, bạn cần thêm logic lấy token tương tự TripService
             response = await client.get(url, timeout=5.0)
-            response.raise_for_status() # Lỗi nếu 4xx/5xx
+            response.raise_for_status() 
             trip_data = response.json()
             logger.info(f"Lấy chi tiết chuyến đi {trip_id} thành công.")
             return trip_data
@@ -377,7 +375,6 @@ async def credit_driver_wallet(driver_id: str, amount: float, trip_id: str) -> b
             logger.info(f"Đã cộng {amount} vào ví tài xế {driver_id} cho chuyến {trip_id}.")
             return True
         else:
-            # Lỗi hiếm gặp: Không tìm thấy ví để cập nhật?
             logger.error(f"Lỗi không mong muốn: Không thể cập nhật số dư cho ví của tài xế {driver_id} (modified_count=0).")
             return False
     except Exception as e:
