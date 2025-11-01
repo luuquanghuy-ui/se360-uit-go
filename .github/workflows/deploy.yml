@@ -190,7 +190,7 @@ jobs:
           --selector=app.kubernetes.io/component=controller \
           --timeout=600s || echo "Ingress controller chưa ready, nhưng tiếp tục deploy..."
 
-    # --- DEPLOY 5 FILE .YAML CỦA ỨNG DỤNG  ---
+    # --- DEPLOY 7 FILE .YAML CỦA ỨNG DỤNG  ---
     - name: Deploy all K8s manifests
       run: |
         # Chỉ áp dụng 5 file service, bỏ qua các file rác

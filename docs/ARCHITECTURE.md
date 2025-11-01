@@ -49,12 +49,17 @@ UIT-Go là nền tảng gọi xe được xây dựng với **microservices arch
 - External access: `http://localhost:800X`
 - Internal communication: `http://servicename:8000` (Docker network DNS)
 
-**Production (Kubernetes):**
-- External access: `http://4.144.174.255` (UserService via LoadBalancer)
-- Internal communication: `http://servicename:8000` (Kubernetes DNS)
-- ClusterIPs: 10.0.x.x (internal cluster network)
-
-> Chi tiết deployment architecture xem [DEPLOY.md](DEPLOY.md)
+**Production (Kubernetes - Ingress API Gateway Pattern):**
+- External access: `http://<INGRESS-EXTERNAL-IP>` → NGINX Ingress Controller (LoadBalancer)
+- Ingress routes traffic based on path:
+  - `/api/users/*` → UserService (ClusterIP)
+  - `/api/drivers/*` → DriverService (ClusterIP)
+  - `/api/trips/*` → TripService (ClusterIP)
+  - `/api/locations/*` → LocationService (ClusterIP)
+  - `/api/payments/*` → PaymentService (ClusterIP)
+  - `/ws` → LocationService WebSocket (ClusterIP)
+- Internal service-to-service: `http://servicename:8000` (Kubernetes DNS)
+- All services use ClusterIP (internal only, không exposed trực tiếp)
 
 ---
 
@@ -73,11 +78,15 @@ flowchart TB
     end
 
     subgraph "Azure Load Balancer"
-        LB[Load Balancer<br/>4.144.174.255]
+        LB[Azure Load Balancer<br/>Public IP]
+    end
+
+    subgraph "Kubernetes Cluster - Ingress Layer"
+        INGRESS[NGINX Ingress Controller<br/>API Gateway<br/>Type: LoadBalancer]
     end
 
     subgraph "Kubernetes Cluster - Service Layer"
-        US[UserService<br/>:8000<br/>LoadBalancer]
+        US[UserService<br/>:8000<br/>ClusterIP]
         TS[TripService<br/>:8000<br/>ClusterIP]
         DS[DriverService<br/>:8000<br/>ClusterIP]
         LS[LocationService<br/>:8000<br/>ClusterIP]
@@ -86,32 +95,36 @@ flowchart TB
 
     subgraph "Data Layer"
         POSTGRES[(PostgreSQL<br/>uitgo_users)]
-        MONGO_TRIP[(MongoDB<br/>uitgo_trips)]
-        MONGO_DRIVER[(MongoDB<br/>uitgo_drivers)]
-        MONGO_PAYMENT[(MongoDB<br/>uitgo_payments)]
-        REDIS[(Redis<br/>Geospatial + Cache)]
+        MONGO_TRIP[(CosmosDB MongoDB API<br/>uitgo_trips)]
+        MONGO_DRIVER[(CosmosDB MongoDB API<br/>uitgo_drivers)]
+        MONGO_PAYMENT[(CosmosDB MongoDB API<br/>uitgo_payments)]
+        REDIS[(Azure Redis Cache<br/>Geospatial + Cache)]
     end
 
-    %% Client connections
+    %% Client to Ingress
     PA -->|HTTP/WS| LB
     DA -->|HTTP/WS| LB
-    LB --> US
+    LB --> INGRESS
 
-    PA -->|HTTP/WS| TS
-    PA -->|WS| LS
-    DA -->|HTTP/WS| TS
-    DA -->|WS| LS
+    %% Ingress routing (API Gateway pattern)
+    INGRESS -->|/api/users/*| US
+    INGRESS -->|/api/trips/*| TS
+    INGRESS -->|/api/drivers/*| DS
+    INGRESS -->|/api/locations/*| LS
+    INGRESS -->|/api/payments/*| PS
+    INGRESS -->|/ws| LS
 
-    %% Service-to-service communication
-    TS -->|Service Token| US
-    TS -->|Get Driver Info| DS
-    TS -->|Find Nearby| LS
-    TS -->|Notify| LS
-    TS -->|Process Payment| PS
-    TS -->|Routing| MAPBOX
+    %% Service-to-service communication (internal)
+    TS -.->|Service Token| US
+    TS -.->|Get Driver Info| DS
+    TS -.->|Find Nearby| LS
+    TS -.->|Notify| LS
+    TS -.->|Process Payment| PS
+    TS -->|Routing API| MAPBOX
 
     PS -->|Payment URL| VNPAY
-    VNPAY -->|Callback| PS
+    VNPAY -->|Callback via Ingress| INGRESS
+    INGRESS -->|/api/payments/callback| PS
 
     %% Database connections
     US --- POSTGRES
@@ -122,11 +135,13 @@ flowchart TB
 
     %% Styling
     classDef clientStyle fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef ingressStyle fill:#fce4ec,stroke:#c2185b,stroke-width:3px
     classDef serviceStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     classDef dbStyle fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
     classDef externalStyle fill:#ffccbc,stroke:#bf360c,stroke-width:2px
 
     class PA,DA clientStyle
+    class INGRESS ingressStyle
     class US,TS,DS,LS,PS serviceStyle
     class POSTGRES,MONGO_TRIP,MONGO_DRIVER,MONGO_PAYMENT,REDIS dbStyle
     class MAPBOX,VNPAY,LB externalStyle

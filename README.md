@@ -5,7 +5,7 @@ UIT-Go là nền tảng gọi xe được xây dựng với kiến trúc microse
 ## 📚 Tài liệu hệ thống
 
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)**: Kiến trúc microservices, sơ đồ luồng nghiệp vụ, giao tiếp giữa các service
-- **[DEPLOY.md](docs/DEPLOY.md)**: Chi tiết deployment trên Azure (AKS, ACR, databases), network topology, IP addresses
+- **[plan.md](docs/plan.md)**: Kế hoạch Module C - Security (DevSecOps), Zero Trust architecture, WAF, CI/CD security
 - **[ENV.sample](docs/ENV.sample)**: Template file môi trường
 
 ## 🏗️ Kiến trúc hệ thống
@@ -21,8 +21,8 @@ UIT-Go là nền tảng gọi xe được xây dựng với kiến trúc microse
 ### Databases
 
 - **PostgreSQL**: User data (uitgo_users)
-- **MongoDB**: Trips, drivers, payments data
-- **Redis**: Geospatial indexing, real-time location cache
+- **Azure CosmosDB** (MongoDB API): Trips, drivers, payments data
+- **Azure Redis Cache**: Geospatial indexing, real-time location cache
 
 ### External APIs
 
@@ -70,49 +70,56 @@ docker-compose down
 
 ### 3. Deploy lên Azure Kubernetes (Production)
 
-Xem chi tiết trong [docs/DEPLOY.md](docs/DEPLOY.md)
+Deployment thông qua GitHub Actions CI/CD pipeline (xem `.github/workflows/deploy.yml`):
 
 ```bash
-# Build và push images lên Azure Container Registry
-az acr login --name uitgoregistry
-docker build -t uitgoregistry.azurecr.io/userservice:v1.0 ./UserService
-docker push uitgoregistry.azurecr.io/userservice:v1.0
+# Pipeline tự động chạy khi push lên main:
+# 1. Test → 2. Build & Push to ACR → 3. Deploy to AKS → 4. Smoke Test
+
+# Manual deployment (nếu cần):
+az acr login --name acruitgoprod
+docker build -t acruitgoprod.azurecr.io/userservice:latest ./UserService
+docker push acruitgoprod.azurecr.io/userservice:latest
 
 # Deploy lên AKS
-kubectl apply -f k8s/userservice-deployment.yaml
-kubectl get pods -n uitgo
+kubectl apply -f k8s/userservice.yaml
+kubectl get pods
 ```
 
 ## 🔑 API Endpoints (Tóm tắt)
 
-### UserService (8000)
-- `POST /auth/register` - Đăng ký user
-- `POST /auth/login` - Đăng nhập, nhận JWT token
-- `POST /auth/token` - Lấy service token (internal)
-- `GET /users/{id}` - Thông tin user
+**Base URL (Production):** `http://<INGRESS-IP>/api/<service>/`
 
-### TripService (8002)
-- `POST /fare-estimate` - Ước tính giá cước
-- `POST /trip-requests/complete` - Tạo chuyến đi
-- `PUT /trips/{id}/assign-driver` - Tài xế nhận chuyến
-- `POST /trips/{id}/complete` - Hoàn thành chuyến
+### UserService
+- `POST /api/users/auth/register` - Đăng ký user
+- `POST /api/users/auth/login` - Đăng nhập, nhận JWT token
+- `POST /api/users/auth/token` - Lấy service token (internal)
+- `GET /api/users/{id}` - Thông tin user
 
-### DriverService (8003)
-- `POST /drivers` - Đăng ký tài xế
-- `GET /drivers/{id}` - Thông tin tài xế
-- `GET /drivers/internal/{id}` - Internal endpoint (cần service token)
+### TripService
+- `POST /api/trips/fare-estimate` - Ước tính giá cước
+- `POST /api/trips/trip-requests/complete` - Tạo chuyến đi
+- `PUT /api/trips/{id}/assign-driver` - Tài xế nhận chuyến
+- `POST /api/trips/{id}/complete` - Hoàn thành chuyến
 
-### LocationService (8001)
-- `GET /drivers/nearby` - Tìm tài xế gần
-- `POST /notify/drivers` - Gửi thông báo đến drivers
+### DriverService
+- `POST /api/drivers/` - Đăng ký tài xế
+- `GET /api/drivers/{id}` - Thông tin tài xế
+- `GET /api/drivers/internal/{id}` - Internal endpoint (cần service token)
+
+### LocationService
+- `GET /api/locations/drivers/nearby` - Tìm tài xế gần
+- `POST /api/locations/notify/drivers` - Gửi thông báo đến drivers
 - `WS /ws/driver/{id}/location` - WebSocket cập nhật vị trí
 - `WS /ws/trip/{id}/{user_type}` - WebSocket theo dõi chuyến đi
 
-### PaymentService (8004)
-- `POST /process-payment` - Xử lý thanh toán
-- `GET /payment-return` - VNPay callback
-- `GET /users/{id}/wallet` - Thông tin ví
-- `POST /wallets/top-up` - Nạp tiền
+### PaymentService
+- `POST /api/payments/process-payment` - Xử lý thanh toán
+- `GET /api/payments/payment-return` - VNPay callback
+- `GET /api/payments/users/{id}/wallet` - Thông tin ví
+- `POST /api/payments/wallets/top-up` - Nạp tiền
+
+**Note:** Ingress sẽ rewrite `/api/users/auth/login` → `/auth/login` khi forward đến UserService
 
 ## 🔐 Authentication Flow
 
@@ -128,32 +135,58 @@ kubectl get pods -n uitgo
 
 ## 🌐 Deployment Architecture (Azure)
 
+### **Ingress API Gateway Pattern**
+
 ```
-Internet
+Internet (Client Apps)
    │
    ▼
-Azure Load Balancer (4.144.174.255)
+Azure Load Balancer (Public IP)
+   │
+   ▼
+┌──────────────────────────────────────────────────────┐
+│  NGINX Ingress Controller (API Gateway)             │
+│  - Type: LoadBalancer                                │
+│  - Routes based on path:                             │
+│    • /api/users/*     → UserService                  │
+│    • /api/trips/*     → TripService                  │
+│    • /api/drivers/*   → DriverService                │
+│    • /api/locations/* → LocationService              │
+│    • /api/payments/*  → PaymentService               │
+│    • /ws              → LocationService (WebSocket)  │
+│  - Future: + ModSecurity WAF                         │
+└──────────────────────────────────────────────────────┘
    │
    ▼
 ┌─────────────────────────────────────┐
-│  AKS Cluster                        │
-│  ├─ UserService (LoadBalancer)     │
-│  ├─ TripService (ClusterIP)        │
-│  ├─ DriverService (ClusterIP)      │
-│  ├─ LocationService (ClusterIP)    │
-│  └─ PaymentService (ClusterIP)     │
+│  AKS Cluster (VNet: 172.16.0.0/16) │
+│  All services: ClusterIP (internal) │
+│  ├─ UserService:8000                │
+│  ├─ TripService:8000                │
+│  ├─ DriverService:8000              │
+│  ├─ LocationService:8000            │
+│  └─ PaymentService:8000             │
 └─────────────────────────────────────┘
    │
    ▼
 ┌─────────────────────────────────────┐
-│  Azure Databases                    │
+│  Azure Databases (Private VNet)    │
 │  ├─ PostgreSQL (uitgo_users)       │
-│  ├─ MongoDB (trips/drivers/payments)│
-│  └─ Redis (location cache)         │
+│  ├─ CosmosDB (trips/drivers/pay)   │
+│  └─ Redis Cache (location)         │
 └─────────────────────────────────────┘
 ```
 
-Chi tiết topology, IP addresses, và communication patterns xem [docs/DEPLOY.md](docs/DEPLOY.md)
+**Ưu điểm của Ingress Pattern:**
+- ✅ Single entry point cho external traffic
+- ✅ Centralized routing, SSL termination, CORS
+- ✅ Không có bottleneck (không qua UserService)
+- ✅ Dễ mở rộng (thêm service chỉ cần thêm path rule)
+- ✅ Tất cả services đều ClusterIP (bảo mật hơn)
+
+Chi tiết architecture và sequence diagrams xem [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+Security planning và Zero Trust architecture xem [docs/plan.md](docs/plan.md)
 
 ## 📁 Project Structure
 
@@ -166,7 +199,7 @@ se360-uit-go/
 ├── PaymentService/       # Payment processing & VNPay
 ├── docs/
 │   ├── ARCHITECTURE.md   # System architecture
-│   ├── DEPLOY.md         # Deployment guide (Azure)
+│   ├── plan.md           # Security planning (Module C - DevSecOps)
 │   └── ENV.sample        # Environment variables template
 ├── k8s/                  # Kubernetes manifests
 ├── terraform/            # Infrastructure as Code
@@ -186,31 +219,40 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ### Database access
 
+**Local development (Docker Compose):**
 ```bash
-# MongoDB
+# MongoDB (local container)
 docker exec -it uitgo-mongodb mongosh -u admin -p secret
 
-# PostgreSQL
+# PostgreSQL (local container)
 docker exec -it uitgo-postgres psql -U admin -d mydb
 
-# Redis
+# Redis (local container)
 docker exec -it uitgo-redis redis-cli
+```
+
+**Production (Azure):**
+```bash
+# CosmosDB - Use connection string from Azure Portal
+# PostgreSQL - Connect via Azure PostgreSQL flexible server
+# Redis - Connect via Azure Redis Cache endpoint
 ```
 
 ## 🔍 Monitoring & Troubleshooting
 
 ```bash
 # View Kubernetes pods status
-kubectl get pods -n uitgo
+kubectl get pods
 
 # View service logs
-kubectl logs -f deployment/userservice -n uitgo
+kubectl logs -f deployment/userservice
 
 # Port forward for local testing
-kubectl port-forward service/tripservice 8002:8000 -n uitgo
+kubectl port-forward service/tripservice 8002:8000
 
-# Check service health
-curl http://4.144.174.255/health  # UserService
+# Check service health via Ingress
+kubectl get ingress
+# Lấy EXTERNAL-IP và test: curl http://<EXTERNAL-IP>/health
 ```
 
 ## 🤝 Contributing
@@ -230,4 +272,4 @@ curl http://4.144.174.255/health  # UserService
 - **Issues**: Report tại GitHub Issues
 - **Documentation**: Xem folder `docs/`
 - **Architecture Questions**: Đọc [ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Deployment Questions**: Đọc [DEPLOY.md](docs/DEPLOY.md)
+- **Security Planning**: Đọc [plan.md](docs/plan.md)
