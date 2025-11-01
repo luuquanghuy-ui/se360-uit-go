@@ -19,10 +19,10 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["configmaps", "endpoints", "nodes", "pods", "secrets", "namespaces"]
-    verbs: ["list", "watch"]
+    verbs: ["list", "watch", "get"]
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
-    verbs: ["list", "watch"]
+    verbs: ["list", "watch", "get", "create", "update"]
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get"]

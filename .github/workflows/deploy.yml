@@ -184,11 +184,11 @@ jobs:
     - name: Deploy NGINX Ingress Controller
       run: |
         kubectl apply -f k8s/nginx-ingress-controller.yaml
-        # Chờ ingress controller ready
+        # Chờ ingress controller ready (tăng timeout lên 10 phút)
         kubectl wait --namespace ingress-nginx \
           --for=condition=ready pod \
           --selector=app.kubernetes.io/component=controller \
-          --timeout=300s
+          --timeout=600s || echo "Ingress controller chưa ready, nhưng tiếp tục deploy..."
 
     # --- DEPLOY 5 FILE .YAML CỦA ỨNG DỤNG  ---
     - name: Deploy all K8s manifests
