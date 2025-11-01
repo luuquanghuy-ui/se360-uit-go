@@ -200,6 +200,7 @@ jobs:
         kubectl apply -f k8s/paymentservice.yaml
         kubectl apply -f k8s/userservice.yaml
         kubectl apply -f k8s/ingress.yaml
+        kubectl apply -f k8s/ingress-websocket.yaml
 
   # ----------------------------------------------
   #  GIAI ĐOẠN 4: SMOKE TEST
