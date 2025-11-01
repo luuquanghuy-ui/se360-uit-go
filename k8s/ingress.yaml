@@ -1,0 +1,73 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: uitgo-ingress
+  annotations:
+    # Sử dụng NGINX Ingress Controller
+    kubernetes.io/ingress.class: nginx
+    # Tăng timeout cho các API calls
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    # Enable CORS nếu cần
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    # Limit request size
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # Rewrite rules
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  rules:
+  - http:
+      paths:
+      # User Service routes
+      - path: /api/users(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: userservice
+            port:
+              number: 80
+
+      # Driver Service routes
+      - path: /api/drivers(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: driverservice
+            port:
+              number: 8000
+
+      # Trip Service routes
+      - path: /api/trips(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: tripservice
+            port:
+              number: 8000
+
+      # Location Service routes
+      - path: /api/locations(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: locationservice
+            port:
+              number: 8000
+
+      # Payment Service routes
+      - path: /api/payments(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: paymentservice
+            port:
+              number: 8000
+
+  # TLS configuration (uncomment khi đã có certificate)
+  # tls:
+  # - hosts:
+  #   - uitgo.example.com
+  #   secretName: uitgo-tls-secret

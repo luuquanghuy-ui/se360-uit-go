@@ -11,7 +11,10 @@ from typing import Dict
 
 # --- SỬA LỖI: Đọc IP động từ Biến Môi Trường (do CI cung cấp) ---
 # Lấy URL từ biến môi trường (do job 'smoke_test' trong deploy.yml cung cấp)
-BASE_URL = os.environ.get("API_URL") 
+BASE_URL = os.environ.get("API_URL")
+# Thêm prefix /api/users vì đang dùng Ingress routing
+if BASE_URL:
+    BASE_URL = f"{BASE_URL}/api/users"
 # --- KẾT THÚC SỬA LỖI ---
 
 # Internal service URLs (only accessible from within cluster)

@@ -1,22 +1,23 @@
+# Resource Group
 resource "azurerm_resource_group" "rg" {
   name     = "rg-${var.prefix}-prod"
   location = var.location
 }
 
-# Đã đổi sang dải 172.16.0.0/16
+# Virtual Network: 172.16.0.0/16
 resource "azurerm_virtual_network" "vnet" {
   name                = "vnet-${var.prefix}-prod"
-  address_space       = ["172.16.0.0/16"] # <-- ĐÃ THAY ĐỔI
+  address_space       = ["172.16.0.0/16"]
   location            = azurerm_resource_group.rg.location
   resource_group_name = azurerm_resource_group.rg.name
 }
 
-# Đã đổi sang dải 172.16.1.0/24
+# Subnet cho AKS: 172.16.1.0/24
 resource "azurerm_subnet" "aks_subnet" {
   name                 = "snet-aks-prod"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["172.16.1.0/24"] # <-- ĐÃ THAY ĐỔI
+  address_prefixes     = ["172.16.1.0/24"] #
 }
 
 # ---------------------------------------------------

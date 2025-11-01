@@ -42,7 +42,7 @@ kind: Service
 metadata:
   name: userservice
 spec:
-  type: LoadBalancer # Service này sẽ có IP Public để truy cập từ bên ngoài
+  type: ClusterIP # Service này sẽ có IP nội bộ để truy cập từ các Pod khác
   ports:
   - port: 80 # Cổng public
     targetPort: 8000 # Cổng container

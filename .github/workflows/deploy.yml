@@ -180,7 +180,17 @@ jobs:
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/paymentservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/paymentservice:${{ github.sha }}|g' k8s/paymentservice.yaml
         sed -i 's|image: ${{ env.ACR_NAME }}.azurecr.io/userservice:.*|image: ${{ env.ACR_NAME }}.azurecr.io/userservice:${{ github.sha }}|g' k8s/userservice.yaml
 
-    # --- DEPLOY 5 FILE .YAML CỦA ỨNG DỤNG (ĐÃ SỬA LỖI) ---
+    # --- DEPLOY NGINX INGRESS CONTROLLER ---
+    - name: Deploy NGINX Ingress Controller
+      run: |
+        kubectl apply -f k8s/nginx-ingress-controller.yaml
+        # Chờ ingress controller ready
+        kubectl wait --namespace ingress-nginx \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/component=controller \
+          --timeout=300s
+
+    # --- DEPLOY 5 FILE .YAML CỦA ỨNG DỤNG  ---
     - name: Deploy all K8s manifests
       run: |
         # Chỉ áp dụng 5 file service, bỏ qua các file rác
@@ -189,6 +199,7 @@ jobs:
         kubectl apply -f k8s/driverservice.yaml
         kubectl apply -f k8s/paymentservice.yaml
         kubectl apply -f k8s/userservice.yaml
+        kubectl apply -f k8s/ingress.yaml
 
   # ----------------------------------------------
   #  GIAI ĐOẠN 4: SMOKE TEST
@@ -212,29 +223,29 @@ jobs:
         cluster-name: ${{ env.AKS_CLUSTER_NAME }}
         
     # --- SỬA LỖI TIMEOUT ---
-    - name: Get Load Balancer IP (Chờ tối đa 5 phút)
+    - name: Get Ingress Load Balancer IP (Chờ tối đa 5 phút)
       id: lb-ip
       run: |
-        echo "Waiting for Load Balancer IP..."
+        echo "Waiting for Ingress Load Balancer IP..."
         start_time=$(date +%s)
         while true; do
-          IP=$(kubectl get service userservice -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          
+          IP=$(kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
           # Kiểm tra xem IP đã có giá trị chưa (không rỗng và không phải <none>)
           if [ -n "$IP" ] && [ "$IP" != "<none>" ]; then
-            echo "Load Balancer IP: $IP"
+            echo "Ingress Load Balancer IP: $IP"
             echo "API_URL=http://$IP" >> $GITHUB_OUTPUT
             break
           fi
-          
+
           current_time=$(date +%s)
           elapsed=$((current_time - start_time))
-          
+
           if [ $elapsed -gt 300 ]; then # 5 phút timeout
-            echo "::error::Timeout: Không thể lấy IP của Load Balancer sau 5 phút."
+            echo "::error::Timeout: Không thể lấy IP của Ingress Load Balancer sau 5 phút."
             exit 1
           fi
-          
+
           echo "IP still <pending>, waiting 15 seconds..."
           sleep 15
         done
