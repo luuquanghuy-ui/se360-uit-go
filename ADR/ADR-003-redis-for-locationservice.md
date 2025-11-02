@@ -1,9 +1,5 @@
 # ADR-003: Sử dụng Redis cho LocationService
 
-**Ngày:** 2025-10-17
-**Trạng thái:** Accepted
-**Người quyết định:** UIT-GO Development Team
-
 ## Context (Bối cảnh)
 
 LocationService cần lưu trữ vị trí real-time của tài xế với các yêu cầu:

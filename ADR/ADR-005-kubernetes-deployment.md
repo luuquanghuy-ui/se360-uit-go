@@ -1,9 +1,5 @@
 # ADR-005: Sử dụng Kubernetes (AKS) cho Deployment
 
-**Ngày:** 2025-10-12
-**Trạng thái:** Accepted
-**Người quyết định:** UIT-GO Development Team
-
 ## Context (Bối cảnh)
 
 UIT-GO có 5 microservices cần deploy và quản lý:
@@ -233,10 +229,3 @@ kubectl create secret generic uitgo-secrets \
 - ADR-004: Microservices Architecture (5 services cần orchestration)
 - ADR-007: NGINX Ingress cho routing
 - ADR-008: GitHub Actions cho CI/CD
-
-## Future Considerations
-
-- **Helm**: Package K8s manifests
-- **ArgoCD**: GitOps deployment
-- **Istio**: Service mesh cho advanced networking
-- **Prometheus + Grafana**: Monitoring

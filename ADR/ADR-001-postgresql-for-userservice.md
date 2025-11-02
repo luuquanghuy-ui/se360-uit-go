@@ -1,9 +1,5 @@
 # ADR-001: Sử dụng PostgreSQL cho UserService
 
-**Ngày:** 2025-10-15
-**Trạng thái:** Accepted
-**Người quyết định:** UIT-GO Development Team
-
 ## Context (Bối cảnh)
 
 UserService cần lưu trữ thông tin người dùng (passengers và drivers) với các yêu cầu:

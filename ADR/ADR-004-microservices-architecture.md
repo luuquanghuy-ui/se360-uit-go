@@ -1,9 +1,5 @@
 # ADR-004: Chọn Microservices Architecture
 
-**Ngày:** 2025-10-10
-**Trạng thái:** Accepted
-**Người quyết định:** UIT-GO Development Team
-
 ## Context (Bối cảnh)
 
 UIT-GO là ứng dụng gọi xe với các yêu cầu:
@@ -173,8 +169,3 @@ UserService → DriverService: NOT ALLOWED (should go through API Gateway)
 - ADR-007: NGINX Ingress cho API Gateway
 - ADR-001, 002, 003: Database choices per service
 
-## Future Considerations
-
-- Có thể thêm **API Gateway service** (Kong, Traefik) cho advanced routing
-- Có thể thêm **Message Queue** (RabbitMQ, Kafka) cho async events
-- Có thể thêm **Service Mesh** (Istio) cho advanced traffic management
