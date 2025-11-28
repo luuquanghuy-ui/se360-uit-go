@@ -123,7 +123,7 @@ jobs:
         REDIS_KEY=$(az redis list-keys --name ${{ env.REDIS_CACHE_NAME }} --resource-group ${{ env.RESOURCE_GROUP_NAME }} --query "primaryKey" -o tsv)
         
         # Lấy thông tin Postgres (Host và User là cố định)
-        # Sử dụng private DNS endpoint vì PostgreSQL có VNet integration
+        # Sử dụng private DNS endpoint (AKS dùng Azure CNI nên resolve được)
         POSTGRES_HOST="${{ env.POSTGRES_SERVER_NAME }}.private.postgres.database.azure.com"
         POSTGRES_USER="postgresadmin"
 
