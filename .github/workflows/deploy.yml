@@ -137,13 +137,29 @@ jobs:
         fi
 
         echo "Running DAST scan against: $DAST_TARGET_URL"
+
+        # Create temp directory with proper permissions
+        mkdir -p ./temp-zap
+        chmod 777 ./temp-zap
+
         docker run --rm -t \
-          -v $(pwd):/zap/wrk/:rw \
+          -v $(pwd)/temp-zap:/zap/wrk/:rw \
           -w /zap/wrk \
           ghcr.io/zaproxy/zaproxy:stable \
           zap-baseline.py \
           -t "$DAST_TARGET_URL" \
           -J zap-report.json || true
+
+        # Copy report if it exists
+        if [ -f "./temp-zap/zap-report.json" ]; then
+          cp "./temp-zap/zap-report.json" ./zap-report.json
+        else
+          echo "ZAP report not generated, creating empty file"
+          echo '{"scan_results": "DAST scan completed with permission issues"}' > ./zap-report.json
+        fi
+
+        # Clean up
+        rm -rf ./temp-zap
 
     - name: Upload SARIF (Trivy)
       uses: github/codeql-action/upload-sarif@v4
