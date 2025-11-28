@@ -29,12 +29,9 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
   version    = "15"
   storage_mb = 32768 # 32 GB
 
-  # --- Public access enabled (for Azure CNI compatibility) ---
-  public_network_access_enabled = true # Đã enable trên Azure Portal
-  # VNet integration bị xóa vì conflict với public access
-  # --- HẾT THAY ĐỔI ---
-
-  # Không cần depends_on nữa
+  delegated_subnet_id  = azurerm_subnet.postgres_subnet.id
+  private_dns_zone_id  = azurerm_private_dns_zone.postgres_dns.id
+  public_network_access_enabled = false
 
   # Tắt các tính năng không cần thiết để tiết kiệm chi phí
   backup_retention_days        = 7
@@ -52,16 +49,6 @@ resource "azurerm_postgresql_flexible_server_database" "postgres_db" {
 }
 
 # ================================================
-# FIREWALL RULES: Cho phép tất cả IPs (test mode)
-# ================================================
-resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_all" {
-  name             = "AllowAll"
-  server_id        = azurerm_postgresql_flexible_server.postgres.id
-  start_ip_address = "0.0.0.0"
-  end_ip_address   = "255.255.255.255"
-}
-
-# ================================================
 # CosmosDB (MongoDB API) - cho các services khác
 # ================================================
 resource "azurerm_cosmosdb_account" "cosmos" {
@@ -70,6 +57,9 @@ resource "azurerm_cosmosdb_account" "cosmos" {
   resource_group_name = azurerm_resource_group.rg.name
   offer_type          = "Standard"
   kind                = "MongoDB"
+
+  public_network_access_enabled     = false
+  is_virtual_network_filter_enabled = true
 
   consistency_policy {
     consistency_level = "Session"
@@ -80,11 +70,6 @@ resource "azurerm_cosmosdb_account" "cosmos" {
     failover_priority = 0
     zone_redundant    = false  # Tắt Availability Zones để tránh lỗi capacity
   }
-
-  # Cho phép truy cập từ Azure services
-  public_network_access_enabled     = true
-  is_virtual_network_filter_enabled = false
-
   # MongoDB capabilities
   capabilities {
     name = "EnableMongo"
@@ -128,18 +113,10 @@ resource "azurerm_redis_cache" "redis" {
   minimum_tls_version = "1.2"
 
   # Cho phép truy cập từ Azure
-  public_network_access_enabled = true
+  public_network_access_enabled = false
 
   redis_configuration {
     # Không cần maxmemory-policy cho Basic tier
   }
 }
 
-# Firewall rule cho Redis (cho phép Azure services)
-resource "azurerm_redis_firewall_rule" "allow_azure_services" {
-  name                = "AllowAzureServices"
-  redis_cache_name    = azurerm_redis_cache.redis.name
-  resource_group_name = azurerm_resource_group.rg.name
-  start_ip            = "0.0.0.0"
-  end_ip              = "0.0.0.0"
-}

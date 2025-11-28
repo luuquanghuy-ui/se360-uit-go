@@ -17,7 +17,13 @@ resource "azurerm_subnet" "aks_subnet" {
   name                 = "snet-aks-prod"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["172.16.1.0/24"] #
+  address_prefixes     = ["172.16.1.0/24"]
+  service_endpoints = [
+    "Microsoft.ContainerRegistry",
+    "Microsoft.Storage",
+    "Microsoft.AzureCosmosDB",
+    "Microsoft.Sql",
+  ]
 }
 
 # ---------------------------------------------------
@@ -28,6 +34,10 @@ resource "azurerm_subnet" "postgres_subnet" {
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = ["172.16.2.0/24"] # Một dải IP mới, không trùng
+  service_endpoints = [
+    "Microsoft.Storage",
+    "Microsoft.Sql",
+  ]
 
   # Yêu cầu đặc biệt: "ủy quyền" subnet này cho dịch vụ Postgres
   delegation {
@@ -39,6 +49,14 @@ resource "azurerm_subnet" "postgres_subnet" {
       ]
     }
   }
+}
+
+# Subnet quản lý jump-box (dùng cho kịch bản SSH khẩn cấp)
+resource "azurerm_subnet" "management_subnet" {
+  name                 = "snet-management-prod"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefixes     = ["172.16.3.0/24"]
 }
 
 resource "azurerm_kubernetes_cluster" "aks" {
