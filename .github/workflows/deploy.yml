@@ -4,7 +4,12 @@ name: Build, Test, Push, and Deploy (Production Ready)
 on:
   push:
     branches:
-      - main 
+      - main
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read 
 
 env:
   # Tên tài nguyên Terraform của bạn
@@ -137,11 +142,13 @@ jobs:
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: trivy-report.sarif
+      continue-on-error: true
 
     - name: Upload SARIF (Checkov)
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: checkov-report.sarif
+      continue-on-error: true
 
     - name: Upload security artifacts
       uses: actions/upload-artifact@v4
