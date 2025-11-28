@@ -217,14 +217,14 @@ az monitor scheduled-query list --resource-group rg-uitgohuy-prod
 ### 6.1 Architecture Decision Records
 
 ADRs have been created for major architectural decisions:
-- [ADR-001: Secure Microservices Architecture](ADR/ADR-001-secure-microservices.md)
-- [ADR-002: VNet Service Endpoints](ADR/ADR-002-vnet-service-endpoints.md)
-- [ADR-003: Linkerd Service Mesh](ADR/ADR-003-linkerd-service-mesh.md)
-- [ADR-004: OSS Security Tools](ADR/ADR-004-oss-security-tools.md)
-- [ADR-005: Pod Security Standards](ADR/ADR-005-pod-security-standards.md)
-- [ADR-006: Encryption at Rest](ADR/ADR-006-encryption-at-rest.md)
-- [ADR-007: Zero Trust Network](ADR/ADR-007-zero-trust-network.md)
-- [ADR-008: Log Aggregation](ADR/ADR-008-log-aggregation.md)
+- [ADR-001: PostgreSQL cho UserService](../ADR/ADR-001-postgresql-for-userservice.md)
+- [ADR-002: Cosmos DB cho TripService](../ADR/ADR-002-cosmosdb-for-tripservice.md)
+- [ADR-003: Redis cho LocationService](../ADR/ADR-003-redis-for-locationservice.md)
+- [ADR-004: Microservices Architecture](../ADR/ADR-004-microservices-architecture.md)
+- [ADR-005: Kubernetes Deployment on AKS](../ADR/ADR-005-kubernetes-deployment.md)
+- [ADR-006: VNet Service Endpoints](../ADR/ADR-006-vnet-service-endpoints.md)
+- [ADR-007: Linkerd Service Mesh](../ADR/ADR-007-linkerd-service-mesh.md)
+- [ADR-008: OSS Security Tooling trong CI/CD](../ADR/ADR-008-oss-security-tooling.md)
 
 ### 6.2 Runbooks
 

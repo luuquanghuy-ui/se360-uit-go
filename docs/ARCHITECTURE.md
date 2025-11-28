@@ -5,8 +5,11 @@ Tài liệu này mô tả kiến trúc microservices của UIT-Go, cách các se
 ## 📋 Table of Contents
 
 - [System Overview](#system-overview)
+- [Sơ đồ kiến trúc tổng quan](#sơ-đồ-kiến-trúc-tổng-quan)
+- [Module chuyên sâu](#module-chuyên-sâu)
+  - [Trip Orchestration Module](#trip-orchestration-module)
+  - [Location & Notification Module](#location--notification-module)
 - [Microservices Architecture](#microservices-architecture)
-- [Component Diagram](#component-diagram)
 - [Sequence Diagrams](#sequence-diagrams)
 - [Inter-Service Communication](#inter-service-communication)
 - [Authentication & Security](#authentication--security)
@@ -28,6 +31,150 @@ UIT-Go là nền tảng gọi xe được xây dựng với **microservices arch
 3. **Async Communication**: WebSocket cho real-time features, HTTP cho synchronous operations
 4. **Centralized Authentication**: UserService cấp JWT cho cả user và service-to-service auth
 5. **Redis for Geospatial**: LocationService sử dụng Redis GEO indexes cho nearby driver queries
+
+---
+
+## Sơ đồ kiến trúc tổng quan
+
+```mermaid
+flowchart TB
+    subgraph Clients["Client Applications"]
+        PA[Passenger App]
+        DA[Driver App]
+    end
+
+    subgraph Edge["Azure Edge"]
+        ALB[Azure Load Balancer<br/>Public IP]
+        NGINX[NGINX Ingress Controller<br/>Path-based routing + TLS]
+    end
+
+    subgraph Mesh["AKS Cluster + Linkerd"]
+        US[UserService<br/>:8000<br/>PostgreSQL]
+        TS[TripService<br/>:8002<br/>CosmosDB]
+        DS[DriverService<br/>:8003<br/>CosmosDB]
+        LS[LocationService<br/>:8001<br/>Redis]
+        PS[PaymentService<br/>:8004<br/>CosmosDB]
+    end
+
+    subgraph Data["Data Layer (Private VNet)"]
+        PG[(Azure PostgreSQL Flexible Server)]
+        COSMOS[(Azure CosmosDB Mongo API)]
+        REDIS[(Azure Redis Cache GEO)]
+    end
+
+    subgraph Ext["External Providers"]
+        MAPBOX[Mapbox Directions API]
+        VNPAY[VNPay Gateway]
+    end
+
+    PA -->|HTTPS / WS| ALB --> NGINX
+    DA -->|HTTPS / WS| ALB
+
+    NGINX -->|/api/users| US
+    NGINX -->|/api/trips| TS
+    NGINX -->|/api/drivers| DS
+    NGINX -->|/api/locations & /ws| LS
+    NGINX -->|/api/payments| PS
+
+    US --> PG
+    TS --> COSMOS
+    DS --> COSMOS
+    PS --> COSMOS
+    LS --> REDIS
+
+    TS --> MAPBOX
+    PS --> VNPAY
+
+    TS -. mTLS .-> US
+    TS -. mTLS .-> DS
+    TS -. mTLS .-> LS
+    TS -. mTLS .-> PS
+```
+
+**Highlights**
+- Single entry point thông qua NGINX Ingress (LoadBalancer) + Azure Firewall/NSG.
+- Linkerd cung cấp mTLS, observability và policy enforcement cho mọi traffic nội bộ.
+- Dữ liệu lưu tách biệt theo service, kết nối qua Service Endpoint hoặc private VNet.
+- External integrations (Mapbox, VNPay) chỉ được gọi từ service tương ứng với outbound egress control.
+
+---
+
+## Module chuyên sâu
+
+### Trip Orchestration Module
+
+```mermaid
+flowchart LR
+    subgraph TripCore["TripService Core"]
+        API[REST API Layer]
+        FLOW[Trip Orchestrator]
+        STORE[(Trips Collection)]
+    end
+
+    API --> FLOW
+    FLOW --> STORE
+
+    FLOW -->|Service token| US[UserService]
+    FLOW -->|Driver lookup| DS[DriverService]
+    FLOW -->|Nearby drivers| LS[LocationService]
+    FLOW -->|Process payment| PS[PaymentService]
+    FLOW -->|Route & ETA| MAPBOX[Mapbox API]
+
+    DS -->|Internal driver info| FLOW
+    LS -->|WebSocket notify| NOTIFY[(Passengers & Drivers)]
+    PS -->|Wallet / VNPay| FLOW
+
+    classDef core fill:#fff2cc,stroke:#f57f17,stroke-width:2px;
+    classDef svc fill:#e0f7fa,stroke:#006064,stroke-width:1.5px;
+    classDef ext fill:#ffe0e0,stroke:#c62828,stroke-width:1.5px;
+
+    class API,FLOW,STORE core
+    class US,DS,LS,PS svc
+    class MAPBOX ext
+```
+
+**Luồng chính**
+1. Passenger gửi yêu cầu chuyến đi → API layer → Trip Orchestrator.
+2. Trip Orchestrator gọi Mapbox để tính toán quãng đường/giá dự kiến.
+3. Trip Orchestrator phát service token từ UserService để truy cập endpoint nội bộ DriverService.
+4. Trip Orchestrator tìm tài xế gần nhất qua LocationService, gửi thông báo WebSocket.
+5. Khi tài xế nhận chuyến, Trip Orchestrator xử lý thanh toán qua PaymentService (wallet/VNPay) và cập nhật trạng thái chuyến.
+
+### Location & Notification Module
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Driver as Driver App
+    participant WS as LocationService WS Gateway
+    participant Redis as Redis GEO Store
+    participant Passenger as Passenger App
+    participant TripSvc as TripService
+
+    Driver->>WS: Connect ws://.../driver/{id}
+    WS->>Redis: SADD connected_drivers
+    loop Every 5-10s
+        Driver->>WS: {"lat":10.82,"lng":106.62}
+        WS->>Redis: GEOADD drivers:locations
+    end
+    TripSvc->>WS: POST /notify/drivers {trip_offer}
+    WS-->>Driver: WebSocket push TRIP_OFFER
+
+    note over WS: Trip room
+    Passenger->>WS: Connect ws://.../trip/{trip_id}/passenger
+    Driver->>WS: Connect ws://.../trip/{trip_id}/driver
+    loop During trip
+        Driver->>WS: {"type":"location",...}
+        WS-->>Passenger: Broadcast driver location
+        TripSvc->>WS: {"type":"status_update"}
+        WS-->>Driver: Update trip status
+    end
+```
+
+**Thành phần chính**
+- **WS Gateway**: FastAPI WebSocket manager quản lý kết nối và phòng (trip room).
+- **Redis GEO**: Lưu vị trí, trạng thái online và publish events để TripService truy vấn nhanh.
+- **Notifications**: TripService dùng HTTP call để bắn thông báo (trip offer, driver assigned, trip completed) và LocationService phân phối qua WS.
 
 ---
 
@@ -936,10 +1083,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 ### Service-Specific Configuration
 
-#### UserService
+#### UserService (PostgreSQL)
 ```bash
-MONGODB_URL=mongodb://admin:secret@mongodb:27017/uitgo_users?authSource=admin
-SECRET_KEY=your-super-secret-key-minimum-32-characters
+POSTGRES_HOST=uitgo-postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=uitgo_users
+POSTGRES_USER=uitgo_app
+POSTGRES_PASSWORD=<strong_password>
+JWT_SECRET_KEY=your-super-secret-key-minimum-32-characters
 TRIPSVC_CLIENT_ID=tripservice_client_001
 TRIPSVC_CLIENT_SECRET=super_secret_trip_key_456
 ```

@@ -329,13 +329,13 @@ resources:
 
 #### 5.3 Security Runbooks
 
-**6 Incident Response Procedures:**
-1. High CPU Alert - DoS response
-2. Pod Restart Loop - OOM investigation
-3. Service Mesh mTLS Failure - Certificate troubleshooting
-4. Database Connection Failures - Network diagnostics
-5. Suspicious Login Activity - Brute force response
-6. Container Image Vulnerability - CVE remediation
+**6 Incident Response Procedures (xem thư mục `docs/runbooks/`):**
+1. [High CPU Alert](runbooks/01-high-cpu-alert.md) - DoS response
+2. [Pod Restart Loop](runbooks/02-pod-restart-loop.md) - OOM investigation
+3. [Service Mesh mTLS Failure](runbooks/03-mtls-failure.md) - Certificate troubleshooting
+4. [Database Connection Failures](runbooks/04-database-connection.md) - Network diagnostics
+5. [Suspicious Login Activity](runbooks/05-suspicious-login.md) - Brute force response
+6. [Container Image Vulnerability](runbooks/06-container-vulnerability.md) - CVE remediation
 
 ---
 
@@ -344,9 +344,9 @@ resources:
 #### 6.1 Architecture Decision Records (ADRs)
 
 **Key ADRs:**
-- ADR-002: VNet Service Endpoints over Private Endpoints
-- ADR-003: Linkerd Service Mesh over Istio
-- ADR-004: Open Source Security Tools over Commercial Solutions
+- [ADR-006: VNet Service Endpoints over Private Endpoints](../ADR/ADR-006-vnet-service-endpoints.md)
+- [ADR-007: Linkerd Service Mesh over Istio](../ADR/ADR-007-linkerd-service-mesh.md)
+- [ADR-008: Open Source Security Tools over Commercial Solutions](../ADR/ADR-008-oss-security-tooling.md)
 
 #### 6.2 Documentation Inventory
 
@@ -355,7 +355,7 @@ resources:
 - ✅ **Implementation Guide** (`docs/implementation-guide.md`) - Step-by-step instructions
 - ✅ **Cost Analysis Report** (`docs/cost-analysis.md`) - 98% savings analysis, ROI calculations
 - ✅ **Security Runbooks** (`docs/runbooks/`) - 6 incident response procedures
-- ✅ **Architecture Decision Records** (`ADR/`) - 8 ADRs for major architectural decisions
+- ✅ **Architecture Decision Records** (`../ADR/`) - 8 ADRs for major architectural decisions
 - ✅ **Threat Model** (`docs/threat-model-vi.md`) - Complete STRIDE analysis
 - ✅ **Updated plan.md** with completion status
 
