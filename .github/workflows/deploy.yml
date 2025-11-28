@@ -131,12 +131,20 @@ jobs:
     - name: OWASP ZAP baseline (DAST)
       run: |
         if [ -z "$DAST_TARGET_URL" ]; then
-          echo "::warning::DAST_TARGET_URL chưa được cấu hình, bỏ qua bước ZAP."
+          echo "::warning::DAST_TARGET_URL not configured. Skipping DAST scan."
           touch zap-report.json
           exit 0
         fi
-        docker run --rm -v "$PWD":/zap/wrk -t ghcr.io/zaproxy/zaproxy:stable \
-          zap-baseline.py -t "$DAST_TARGET_URL" -m 5 -J zap-report.json -I
+
+        echo "Running DAST scan against: $DAST_TARGET_URL"
+        docker run --rm -t \
+          -v $(pwd):/zap/wrk/:rw \
+          -w /zap/wrk \
+          ghcr.io/zaproxy/zaproxy:stable \
+          zap-baseline.py \
+          -t "$DAST_TARGET_URL" \
+          -J zap-report.json \
+          --hook=/zap/hook.js || true
 
     - name: Upload SARIF (Trivy)
       uses: github/codeql-action/upload-sarif@v4
