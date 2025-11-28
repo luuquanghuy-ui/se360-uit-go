@@ -79,7 +79,7 @@ jobs:
 
     - name: Run Safety (SCA)
       run: |
-        safety check --output json > safety-report.json || true
+        safety check --output json --quiet > safety-report.json || true
 
     - name: Run TruffleHog (Secrets)
       run: |
@@ -139,13 +139,13 @@ jobs:
           zap-baseline.py -t "$DAST_TARGET_URL" -m 5 -J zap-report.json -I
 
     - name: Upload SARIF (Trivy)
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: trivy-report.sarif
       continue-on-error: true
 
     - name: Upload SARIF (Checkov)
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: checkov-report.sarif
       continue-on-error: true
