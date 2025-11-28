@@ -22,6 +22,12 @@ SQLALCHEMY_DATABASE_URL = (
     f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
 
+# --- DEBUG LOGGING ---
+safe_url = SQLALCHEMY_DATABASE_URL.replace(quote_plus(POSTGRES_PASSWORD), "******")
+print(f"DEBUG: POSTGRES_HOST raw: '{POSTGRES_HOST}'")
+print(f"DEBUG: Connection URL: {safe_url}")
+# ---------------------
+
 Base = declarative_base()
 
 
