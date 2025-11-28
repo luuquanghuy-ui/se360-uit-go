@@ -73,7 +73,7 @@ jobs:
 
     - name: Run Safety (SCA)
       run: |
-        safety check --json --output safety-report.json
+        safety check --output json > safety-report.json
 
     - name: Run TruffleHog (Secrets)
       run: |
