@@ -143,8 +143,7 @@ jobs:
           ghcr.io/zaproxy/zaproxy:stable \
           zap-baseline.py \
           -t "$DAST_TARGET_URL" \
-          -J zap-report.json \
-          --hook=/zap/hook.js || true
+          -J zap-report.json || true
 
     - name: Upload SARIF (Trivy)
       uses: github/codeql-action/upload-sarif@v4
