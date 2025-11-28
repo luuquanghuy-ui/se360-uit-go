@@ -87,7 +87,7 @@ jobs:
 
     - name: Run Checkov (Terraform IaC)
       run: |
-        checkov -d terraform --framework terraform --compact --quiet --output sarif > checkov-report.sarif || true
+        checkov -d terraform --framework terraform --output json > checkov-report.json || true
 
     - name: Check for Critical Security Issues
       run: |
@@ -152,12 +152,6 @@ jobs:
         sarif_file: trivy-report.sarif
       continue-on-error: true
 
-    - name: Upload SARIF (Checkov)
-      uses: github/codeql-action/upload-sarif@v4
-      with:
-        sarif_file: checkov-report.sarif
-      continue-on-error: true
-
     - name: Upload security artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -165,7 +159,7 @@ jobs:
         path: |
           bandit-report.json
           trivy-report.sarif
-          checkov-report.sarif
+          checkov-report.json
           safety-report.json
           trufflehog-report.json
           zap-report.json
