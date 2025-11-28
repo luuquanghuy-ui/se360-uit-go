@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: driverservice
-        image: acruitgoprod.azurecr.io/driverservice:latest # CI/CD sẽ thay
+        image: acruithuykhoigo.azurecr.io/driverservice:latest # CI/CD sẽ thay
         ports:
         - containerPort: 8000
         envFrom:

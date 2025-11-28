@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: paymentservice
-        image: acruitgoprod.azurecr.io/paymentservice:latest # CI/CD sẽ thay
+        image: acruithuykhoigo.azurecr.io/paymentservice:latest # CI/CD sẽ thay
         ports:
         - containerPort: 8000
         envFrom:

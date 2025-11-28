@@ -1,5 +1,5 @@
 output "acr_login_server" {
-  description = "The ACR login server (e.g., acruitgoprod.azurecr.io)"
+  description = "The ACR login server (e.g., acruithuykhoigo.azurecr.io)"
   value       = azurerm_container_registry.acr.login_server
 }
 

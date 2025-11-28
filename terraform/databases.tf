@@ -77,6 +77,7 @@ resource "azurerm_cosmosdb_account" "cosmos" {
   geo_location {
     location          = azurerm_resource_group.rg.location
     failover_priority = 0
+    zone_redundant    = false  # Tắt Availability Zones để tránh lỗi capacity
   }
 
   # Cho phép truy cập từ Azure services

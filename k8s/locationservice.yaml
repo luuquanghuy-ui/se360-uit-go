@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: locationservice
-        image: acruitgoprod.azurecr.io/locationservice:latest # CI/CD sẽ thay
+        image: acruithuykhoigo.azurecr.io/locationservice:latest # CI/CD sẽ thay
         ports:
         - containerPort: 8000
         env:

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: tripservice
-        image: acruitgoprod.azurecr.io/tripservice:latest # CI/CD sẽ thay
+        image: acruithuykhoigo.azurecr.io/tripservice:latest # CI/CD sẽ thay
         ports:
         - containerPort: 8000
         envFrom:

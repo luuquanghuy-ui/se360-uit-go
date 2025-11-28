@@ -1,9 +1,5 @@
 # ADR-002: Sử dụng Cosmos DB (MongoDB API) cho TripService
 
-**Ngày:** 2025-10-16
-**Trạng thái:** Accepted
-**Người quyết định:** UIT-GO Development Team
-
 ## Context (Bối cảnh)
 
 TripService cần lưu trữ thông tin chuyến đi với các yêu cầu:

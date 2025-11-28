@@ -1,21 +1,11 @@
-terraform {
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = ">= 4.0" # Phiên bản provider Azurerm tối thiểu
+provider "azurerm" {
+  # --- THÊM KHỐI NÀY VÀO ĐÂY ---
+  features {
+    resource_group {
+      prevent_deletion_if_contains_resources = false
     }
   }
+  # ------------------------------
 
-  # KHỐI BACKEND PHẢI NẰM BÊN TRONG KHỐI TERRAFORM
-  backend "azurerm" {
-    resource_group_name  = "rg-uitgo-tfstate"      # Tên resource group chứa storage
-    storage_account_name = "stuitgotfstate"        # Tên storage account lưu state
-    container_name       = "tfstate"               # Tên container lưu file state
-    key                  = "prod.terraform.tfstate" # Đường dẫn file state
-  }
-}
-
-provider "azurerm" {
-  features {}
-  subscription_id = "d8ece151-084a-418c-a446-0ff133a2d388" # ID của subscription Azure
+  subscription_id = "152428c8-7979-4fd1-be70-0c993c811514"
 }

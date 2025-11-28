@@ -8,12 +8,12 @@ on:
 
 env:
   # Tên tài nguyên Terraform của bạn
-  ACR_NAME: "acruitgoprod"
-  AKS_CLUSTER_NAME: "aks-uitgo-prod"
-  RESOURCE_GROUP_NAME: "rg-uitgo-prod"
-  COSMOS_DB_NAME: "cosmos-uitgo-prod"
-  POSTGRES_SERVER_NAME: "psql-uitgo-prod"
-  REDIS_CACHE_NAME: "redis-uitgo-prod"
+  ACR_NAME: "acruithuykhoigo"
+  AKS_CLUSTER_NAME: "aks-uitgohuy-prod"
+  RESOURCE_GROUP_NAME: "rg-uitgohuy-prod"
+  COSMOS_DB_NAME: "cosmos-uitgohuy-prod"
+  POSTGRES_SERVER_NAME: "psql-uitgohuy-prod"
+  REDIS_CACHE_NAME: "redis-uitgohuy-prod"
 
 jobs:
   # ----------------------------------------------

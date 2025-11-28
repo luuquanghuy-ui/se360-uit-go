@@ -78,8 +78,8 @@ Deployment thông qua GitHub Actions CI/CD pipeline (xem `.github/workflows/depl
 
 # Manual deployment (nếu cần):
 az acr login --name acruitgoprod
-docker build -t acruitgoprod.azurecr.io/userservice:latest ./UserService
-docker push acruitgoprod.azurecr.io/userservice:latest
+docker build -t acruithuykhoigo.azurecr.io/userservice:latest ./UserService
+docker push acruithuykhoigo.azurecr.io/userservice:latest
 
 # Deploy lên AKS
 kubectl apply -f k8s/userservice.yaml

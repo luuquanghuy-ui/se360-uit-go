@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: userservice
-        image: acruitgoprod.azurecr.io/userservice:latest # CI/CD sẽ thay
+        image: acruithuykhoigo.azurecr.io/userservice:latest # CI/CD sẽ thay
         ports:
         - containerPort: 8000
         envFrom:
