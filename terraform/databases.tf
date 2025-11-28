@@ -29,14 +29,12 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
   version    = "15"
   storage_mb = 32768 # 32 GB
 
-  # --- THAY ĐỔI QUAN TRỌNG: Sử dụng VNet Integration ---
-  public_network_access_enabled = false # Tắt truy cập public
-  delegated_subnet_id           = azurerm_subnet.postgres_subnet.id # Đặt vào subnet riêng
-  private_dns_zone_id           = azurerm_private_dns_zone.postgres_dns.id # DNS Zone (BẮT BUỘC)
+  # --- Public access enabled (for Azure CNI compatibility) ---
+  public_network_access_enabled = true # Đã enable trên Azure Portal
+  # VNet integration bị xóa vì conflict với public access
   # --- HẾT THAY ĐỔI ---
 
-  # PostgreSQL server phải chờ DNS Zone link được tạo trước
-  depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres_dns_link]
+  # Không cần depends_on nữa
 
   # Tắt các tính năng không cần thiết để tiết kiệm chi phí
   backup_retention_days        = 7
@@ -54,11 +52,14 @@ resource "azurerm_postgresql_flexible_server_database" "postgres_db" {
 }
 
 # ================================================
-# FIREWALL RULES: KHÔNG CẦN THIẾT NỮA
+# FIREWALL RULES: Cho phép tất cả IPs (test mode)
 # ================================================
-# Khi sử dụng VNet Integration (delegated_subnet_id), firewall rules
-# không còn cần thiết vì kết nối đã được bảo mật nội bộ trong VNet.
-# PostgreSQL server chỉ có thể truy cập được từ các resources trong VNet.
+resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_all" {
+  name             = "AllowAll"
+  server_id        = azurerm_postgresql_flexible_server.postgres.id
+  start_ip_address = "0.0.0.0"
+  end_ip_address   = "255.255.255.255"
+}
 
 # ================================================
 # CosmosDB (MongoDB API) - cho các services khác

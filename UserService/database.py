@@ -9,6 +9,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
+from urllib.parse import quote_plus
+
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "admin")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "default-password")
@@ -16,7 +18,7 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "mydb")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
 
 SQLALCHEMY_DATABASE_URL = (
-    f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
+    f"postgresql+asyncpg://{quote_plus(POSTGRES_USER)}:{quote_plus(POSTGRES_PASSWORD)}@"
     f"{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
 
