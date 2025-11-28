@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tripservice
+  labels:
+    app: tripservice
+    tier: backend
 spec:
   replicas: 1
   selector:
@@ -11,7 +14,16 @@ spec:
     metadata:
       labels:
         app: tripservice
+        tier: backend
+      annotations:
+        linkerd.io/inject: enabled
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: tripservice
         image: acruithuykhoigo.azurecr.io/tripservice:latest # CI/CD sẽ thay
@@ -38,6 +50,19 @@ spec:
           valueFrom: { secretKeyRef: { name: uitgo-secrets, key: TRIPSVC_CLIENT_SECRET } }
         - name: USER_SERVICE_URL
           valueFrom: { secretKeyRef: { name: uitgo-secrets, key: USER_SERVICE_BASE_URL } }
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
 ---
 apiVersion: v1
 kind: Service

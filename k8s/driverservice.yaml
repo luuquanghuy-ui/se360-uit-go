@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: driverservice
+  labels:
+    app: driverservice
+    tier: backend
 spec:
   replicas: 1
   selector:
@@ -11,7 +14,16 @@ spec:
     metadata:
       labels:
         app: driverservice
+        tier: backend
+      annotations:
+        linkerd.io/inject: enabled
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: driverservice
         image: acruithuykhoigo.azurecr.io/driverservice:latest # CI/CD sẽ thay
@@ -29,6 +41,19 @@ spec:
           value: "http://paymentservice:8000"
         - name: SECRET_KEY # Đổi tên thành JWT_SECRET_KEY nếu code của bạn dùng tên đó
           valueFrom: { secretKeyRef: { name: uitgo-secrets, key: JWT_SECRET_KEY } }
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
 ---
 apiVersion: v1
 kind: Service

@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: locationservice
+  labels:
+    app: locationservice
+    tier: backend
 spec:
   replicas: 1
   selector:
@@ -11,7 +14,16 @@ spec:
     metadata:
       labels:
         app: locationservice
+        tier: backend
+      annotations:
+        linkerd.io/inject: enabled
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: locationservice
         image: acruithuykhoigo.azurecr.io/locationservice:latest # CI/CD sẽ thay
@@ -23,6 +35,19 @@ spec:
           valueFrom: { secretKeyRef: { name: uitgo-secrets, key: REDIS_HOST } }
         - name: REDIS_KEY
           valueFrom: { secretKeyRef: { name: uitgo-secrets, key: REDIS_KEY } }
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
 ---
 apiVersion: v1
 kind: Service

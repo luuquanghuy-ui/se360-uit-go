@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: paymentservice
+  labels:
+    app: paymentservice
+    tier: backend
 spec:
   replicas: 1
   selector:
@@ -11,7 +14,16 @@ spec:
     metadata:
       labels:
         app: paymentservice
+        tier: backend
+      annotations:
+        linkerd.io/inject: enabled
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: paymentservice
         image: acruithuykhoigo.azurecr.io/paymentservice:latest # CI/CD sẽ thay
@@ -25,6 +37,19 @@ spec:
           valueFrom: { secretKeyRef: { name: uitgo-secrets, key: COSMOS_CONNECTION_STRING } }
         - name: DRIVER_SERVICE_URL
           value: "http://driverservice:8000"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
 ---
 apiVersion: v1
 kind: Service

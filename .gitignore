@@ -72,3 +72,7 @@ GIT_HISTORY_CLEANED.md
 # Claude Code AI
 .claude/
 CLAUDE.md
+
+# Terraform variables (contains secrets)
+terraform.tfvars
+*.tfvars

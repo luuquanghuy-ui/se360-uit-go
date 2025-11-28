@@ -11,6 +11,9 @@ Thư mục này chứa các bản ghi quyết định kiến trúc (Architectura
 | [ADR-003](ADR-003-redis-for-locationservice.md) | Redis cho LocationService | Accepted | 2025-10-17 |
 | [ADR-004](ADR-004-microservices-architecture.md) | Microservices Architecture | Accepted | 2025-10-10 |
 | [ADR-005](ADR-005-kubernetes-deployment.md) | Kubernetes/AKS cho Deployment | Accepted | 2025-10-12 |
+| [ADR-006](ADR-006-vnet-service-endpoints.md) | VNet Service Endpoints thay Private Endpoint | Accepted | 2025-11-28 |
+| [ADR-007](ADR-007-linkerd-service-mesh.md) | Linkerd Service Mesh | Accepted | 2025-11-28 |
+| [ADR-008](ADR-008-oss-security-tooling.md) | OSS Security Tooling trong CI/CD | Accepted | 2025-11-28 |
 
 ## 🎯 ADR là gì?
 
