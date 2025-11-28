@@ -135,7 +135,7 @@ jobs:
           touch zap-report.json
           exit 0
         fi
-        docker run --rm -v "$PWD":/zap/wrk -t owasp/zap2docker-stable \
+        docker run --rm -v "$PWD":/zap/wrk -t ghcr.io/zaproxy/zaproxy:stable \
           zap-baseline.py -t "$DAST_TARGET_URL" -m 5 -J zap-report.json -I
 
     - name: Upload SARIF (Trivy)
