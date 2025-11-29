@@ -83,7 +83,7 @@ async def health_check():
         from database import database
         if database is not None:
             # Use a simple query instead of ping for CosmosDB compatibility
-            await database.drivers.find_one({})
+            await database.get_collection("drivers").find_one({})
             return {
                 "status": "healthy",
                 "service": "driverservice",
