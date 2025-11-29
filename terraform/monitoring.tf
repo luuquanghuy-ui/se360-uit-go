@@ -26,7 +26,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "aks_cpu_high" {
   frequency           = 5
   time_window         = 5
   enabled             = true
-  query = <<QUERY
+  query               = <<QUERY
 InsightsMetrics
 | where Namespace == "container.azm.ms/node" and Name == "cpuUsageNanoCores"
 | summarize AvgCpu = avg(Val / 10000000) by Computer, bin(TimeGenerated, 5m)
@@ -53,7 +53,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "aks_memory_high" {
   frequency           = 5
   time_window         = 5
   enabled             = true
-  query = <<QUERY
+  query               = <<QUERY
 InsightsMetrics
 | where Namespace == "container.azm.ms/node" and Name == "memoryRssBytes"
 | summarize AvgMem = avg(Val / 1073741824 * 100) by Computer, bin(TimeGenerated, 5m)
@@ -80,7 +80,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "pod_restart" {
   frequency           = 5
   time_window         = 10
   enabled             = true
-  query = <<-EOT
+  query               = <<-EOT
 KubePodInventory
 | where TimeGenerated >= ago(10m)
 | summarize count() by Name, Status
@@ -107,7 +107,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "node_not_ready" {
   frequency           = 5
   time_window         = 5
   enabled             = true
-  query = <<QUERY
+  query               = <<QUERY
 KubeNodeInventory
 | where Status != "Ready"
 QUERY
@@ -132,7 +132,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "linkerd_mtls_failure" {
   frequency           = 5
   time_window         = 10
   enabled             = true
-  query = <<QUERY
+  query               = <<QUERY
 ContainerLog
 | where LogEntry has "linkerd" and LogEntry has "TLS handshake error"
 QUERY

@@ -29,8 +29,8 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
   version    = "15"
   storage_mb = 32768 # 32 GB
 
-  delegated_subnet_id  = azurerm_subnet.postgres_subnet.id
-  private_dns_zone_id  = azurerm_private_dns_zone.postgres_dns.id
+  delegated_subnet_id           = azurerm_subnet.postgres_subnet.id
+  private_dns_zone_id           = azurerm_private_dns_zone.postgres_dns.id
   public_network_access_enabled = false
 
   # Tắt các tính năng không cần thiết để tiết kiệm chi phí
@@ -68,7 +68,7 @@ resource "azurerm_cosmosdb_account" "cosmos" {
   geo_location {
     location          = azurerm_resource_group.rg.location
     failover_priority = 0
-    zone_redundant    = false  # Tắt Availability Zones để tránh lỗi capacity
+    zone_redundant    = false # Tắt Availability Zones để tránh lỗi capacity
   }
   # MongoDB capabilities
   capabilities {
@@ -77,6 +77,12 @@ resource "azurerm_cosmosdb_account" "cosmos" {
 
   capabilities {
     name = "EnableServerless" # Serverless để tiết kiệm chi phí
+  }
+
+  # Virtual Network Rules
+  virtual_network_rule {
+    id           = azurerm_subnet.aks_subnet.id
+    ignore_missing_vnet_service_endpoint = false
   }
 }
 
@@ -112,11 +118,12 @@ resource "azurerm_redis_cache" "redis" {
   sku_name            = "Basic"
   minimum_tls_version = "1.2"
 
-  # Cho phép truy cập từ Azure
-  public_network_access_enabled = false
+  # Cho phép truy cập từ Azure (Basic tier cần public access)
+  public_network_access_enabled = true
 
   redis_configuration {
     # Không cần maxmemory-policy cho Basic tier
   }
 }
+
 
