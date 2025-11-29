@@ -18,11 +18,11 @@ if BASE_URL:
 # --- KẾT THÚC SỬA LỖI ---
 
 # External service URLs via NGINX Ingress
-EXTERNAL_SERVICES = {
-    "tripservice": f"{BASE_URL.replace('/api/users', '/api/trips')}",
-    "driverservice": f"{BASE_URL.replace('/api/users', '/api/drivers')}",
-    "locationservice": f"{BASE_URL.replace('/api/users', '/api/locations')}",
-}
+def get_external_service_url(service_path: str) -> str:
+    """Get external service URL by replacing user service path"""
+    if not BASE_URL:
+        return None
+    return BASE_URL.replace('/api/users', f'/api/{service_path}')
 
 class Color:
     """ANSI color codes"""
@@ -222,21 +222,33 @@ def run_smoke_tests():
 
     # Test 5: TripService health (external via Ingress)
     print()
-    trip_url = EXTERNAL_SERVICES["tripservice"]
-    log_test(f"Test 5: TripService Health ({trip_url}/health)", "info")
-    results.append(_test_health_endpoint("TripService", trip_url))
+    trip_url = get_external_service_url("trips")
+    if trip_url:
+        log_test(f"Test 5: TripService Health ({trip_url}/health)", "info")
+        results.append(_test_health_endpoint("TripService", trip_url))
+    else:
+        log_test("Test 5: TripService skipped - No API URL", "warn")
+        results.append(False)
     print()
 
     # Test 6: LocationService health (external via Ingress)
-    loc_url = EXTERNAL_SERVICES["locationservice"]
-    log_test(f"Test 6: LocationService Health ({loc_url}/health)", "info")
-    results.append(_test_health_endpoint("LocationService", loc_url))
+    loc_url = get_external_service_url("locations")
+    if loc_url:
+        log_test(f"Test 6: LocationService Health ({loc_url}/health)", "info")
+        results.append(_test_health_endpoint("LocationService", loc_url))
+    else:
+        log_test("Test 6: LocationService skipped - No API URL", "warn")
+        results.append(False)
     print()
 
     # (Tuỳ chọn) Test 7: DriverService health (external via Ingress)
-    drv_url = EXTERNAL_SERVICES["driverservice"]
-    log_test(f"Test 7: DriverService Health ({drv_url}/health)", "info")
-    results.append(_test_health_endpoint("DriverService", drv_url))
+    drv_url = get_external_service_url("drivers")
+    if drv_url:
+        log_test(f"Test 7: DriverService Health ({drv_url}/health)", "info")
+        results.append(_test_health_endpoint("DriverService", drv_url))
+    else:
+        log_test("Test 7: DriverService skipped - No API URL", "warn")
+        results.append(False)
     print()
 
     # Summary
