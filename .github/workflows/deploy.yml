@@ -79,11 +79,11 @@ jobs:
 
     - name: Run Safety (SCA)
       run: |
-        safety check --output json --quiet > safety-report.json || true
+        safety check --json --output safety-report.json || true
 
     - name: Run TruffleHog (Secrets)
       run: |
-        trufflehog filesystem --json --no-update --output trufflehog-report.json . || true
+        trufflehog filesystem . --json --output trufflehog-report.json || true
 
     - name: Run Checkov (Terraform IaC)
       run: |

@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+data:
+  # Enable forward headers for proper client IP detection
+  use-forwarded-headers: "true"
+  compute-full-forwarded-for: "true"
+
+  # Add security headers globally for all services
+  http-snippet: |
+    # Security Headers Configuration
+    # =================================
+
+    # Content Security Policy (CSP) - Prevent XSS attacks
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.openrouteservice.org; frame-ancestors 'none'; form-action 'self';" always;
+
+    # Permissions Policy - Control browser features
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), ambient-light-sensor=(), autoplay=(), encrypted-media=(), fullscreen=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), web-share=(), xr-spatial-tracking=()" always;
+
+    # X-Frame-Options - Prevent clickjacking
+    add_header X-Frame-Options "DENY" always;
+
+    # X-Content-Type-Options - Prevent MIME sniffing
+    add_header X-Content-Type-Options "nosniff" always;
+
+    # X-XSS-Protection - Enable XSS filter in legacy browsers
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Referrer Policy - Control referrer information
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Strict-Transport-Security (HSTS) - Force HTTPS (commented out for HTTP development)
+    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+    # Remove server information
+    server_tokens off;
+
+    # Handle 404 pages with proper cache headers
+    map $status $cache_control_header {
+        404 "no-cache, no-store, must-revalidate";
+        default "";
+    }
+
+    server {
+        # Apply cache control header based on response status
+        add_header Cache-Control $cache_control_header always;
+    }
+
+  # Proxy settings for microservices
+  proxy-buffer-size: "128k"
+  proxy-buffers: "4 256k"
+  proxy-busy-buffers-size: "256k"
+
+  # Timeouts for microservices
+  proxy-connect-timeout: "30"
+  proxy-send-timeout: "600"
+  proxy-read-timeout: "600"
+
+  # Body size for API requests
+  proxy-body-size: "10m"
+
+  # Enable compression
+  gzip: "on"
+  gzip-comp-level: "6"
+  gzip-min-length: "1000"
+  gzip-proxied: "any"
+  gzip-vary: "on"
+  gzip-types: "application/json application/xml text/plain text/css application/javascript application/xml+rss text/javascript"
