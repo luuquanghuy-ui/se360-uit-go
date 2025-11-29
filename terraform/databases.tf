@@ -31,6 +31,8 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
 
   delegated_subnet_id           = azurerm_subnet.postgres_subnet.id
   private_dns_zone_id           = azurerm_private_dns_zone.postgres_dns.id
+  
+  # QUAN TRỌNG: PostgreSQL dùng VNet Injection nên phải TẮT public access
   public_network_access_enabled = false
 
   # Tắt các tính năng không cần thiết để tiết kiệm chi phí
@@ -38,6 +40,8 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
   geo_redundant_backup_enabled = false
 
   zone = "1"
+
+  depends_on = [azurerm_private_dns_zone_virtual_network_link.postgres_dns_link]
 }
 
 # Database trong PostgreSQL server
@@ -58,8 +62,12 @@ resource "azurerm_cosmosdb_account" "cosmos" {
   offer_type          = "Standard"
   kind                = "MongoDB"
 
-  public_network_access_enabled     = false
-  is_virtual_network_filter_enabled = true
+  # --- CẤU HÌNH FIX LỖI KẾT NỐI ---
+  # Bật truy cập công khai để TripService/DriverService kết nối dễ dàng
+  public_network_access_enabled     = true
+  
+  # Tắt bộ lọc VNet để tránh lỗi 400 Conflict và cho phép kết nối từ AKS
+  is_virtual_network_filter_enabled = false
 
   consistency_policy {
     consistency_level = "Session"
@@ -70,6 +78,7 @@ resource "azurerm_cosmosdb_account" "cosmos" {
     failover_priority = 0
     zone_redundant    = false # Tắt Availability Zones để tránh lỗi capacity
   }
+  
   # MongoDB capabilities
   capabilities {
     name = "EnableMongo"
@@ -79,11 +88,7 @@ resource "azurerm_cosmosdb_account" "cosmos" {
     name = "EnableServerless" # Serverless để tiết kiệm chi phí
   }
 
-  # Virtual Network Rules
-  virtual_network_rule {
-    id           = azurerm_subnet.aks_subnet.id
-    ignore_missing_vnet_service_endpoint = false
-  }
+  # LƯU Ý: Đã xóa block virtual_network_rule để tránh xung đột
 }
 
 # Cosmos databases cho từng service
@@ -126,5 +131,11 @@ resource "azurerm_redis_cache" "redis" {
   }
 }
 
-
-
+# Firewall Rule cho Redis (QUAN TRỌNG: Mở để AKS kết nối được vào Redis Public)
+resource "azurerm_redis_firewall_rule" "allow_all" {
+  name                = "AllowAll"
+  redis_cache_name    = azurerm_redis_cache.redis.name
+  resource_group_name = azurerm_resource_group.rg.name
+  start_ip            = "0.0.0.0"
+  end_ip              = "255.255.255.255"
+}
