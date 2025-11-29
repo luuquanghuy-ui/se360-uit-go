@@ -6,24 +6,31 @@ import pytest
 import sys
 import os
 
-# Thêm TripService vào PYTHONPATH
+# Import trực tiếp bằng sys.path để tránh conflict
 trip_service_path = os.path.join(os.path.dirname(__file__), "..", "TripService")
-sys.path.insert(0, trip_service_path)
+if trip_service_path not in sys.path:
+    sys.path.insert(0, trip_service_path)
 
-# Debug: Print Python paths to see what's being imported
-print(f"Current working directory: {os.getcwd()}")
-print(f"TripService path: {trip_service_path}")
-print(f"Python path: {sys.path[:3]}")  # Show first 3 paths
+# Xóa LocationService khỏi path để tránh conflict
+location_service_path = os.path.join(os.path.dirname(__file__), "..", "LocationService")
+if location_service_path in sys.path:
+    sys.path.remove(location_service_path)
 
-# Import trực tiếp với đường dẫn đầy đủ
-import models
-import crud
+# Import từ TripService với module prefix để tránh nhầm lẫn
+import importlib.util
 
-print(f"models module: {models.__file__}")
-print(f"crud module: {crud.__file__}")
+# Load TripService modules directly
+spec = importlib.util.spec_from_file_location("trip_models", os.path.join(trip_service_path, "models.py"))
+trip_models = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(trip_models)
 
-from models import VehicleTypeEnum  # type: ignore
-from crud import calculate_estimated_fare  # type: ignore
+spec = importlib.util.spec_from_file_location("trip_crud", os.path.join(trip_service_path, "crud.py"))
+trip_crud = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(trip_crud)
+
+# Sử dụng các import đã load
+VehicleTypeEnum = trip_models.VehicleTypeEnum
+calculate_estimated_fare = trip_crud.calculate_estimated_fare
 
 
 class TestTripServiceFare:
