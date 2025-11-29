@@ -22,7 +22,6 @@ INTERNAL_SERVICES = {
     "tripservice": "http://tripservice:8000",
     "driverservice": "http://driverservice:8000",
     "locationservice": "http://locationservice:8000",
-    "paymentservice": "http://paymentservice:8000"
 }
 
 class Color:
@@ -219,6 +218,25 @@ def run_smoke_tests():
     log_test(f"Test 4: User Login ({BASE_URL}/auth/login)", "info")
     token_data = _test_userservice_login() # Đổi tên hàm
     results.append(bool(token_data))
+    print()
+
+    # Test 5: TripService health (internal)
+    print()
+    trip_url = INTERNAL_SERVICES["tripservice"]
+    log_test(f"Test 5: TripService Health ({trip_url}/health)", "info")
+    results.append(_test_health_endpoint("TripService", trip_url))
+    print()
+
+    # Test 6: LocationService health (internal)
+    loc_url = INTERNAL_SERVICES["locationservice"]
+    log_test(f"Test 6: LocationService Health ({loc_url}/health)", "info")
+    results.append(_test_health_endpoint("LocationService", loc_url))
+    print()
+
+    # (Tuỳ chọn) Test 7: DriverService health (internal)
+    drv_url = INTERNAL_SERVICES["driverservice"]
+    log_test(f"Test 7: DriverService Health ({drv_url}/health)", "info")
+    results.append(_test_health_endpoint("DriverService", drv_url))
     print()
 
     # Summary
