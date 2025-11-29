@@ -6,7 +6,7 @@ load_dotenv()
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_KEY = os.getenv("REDIS_KEY", None)
-REDIS_PORT = os.getenv("REDIS_PORT", "6379")
+REDIS_PORT = os.getenv("REDIS_PORT", "6380")
 
 try:
     if REDIS_KEY:
