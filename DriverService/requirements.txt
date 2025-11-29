@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-motor==3.3.2
+motor==3.2.1
 pydantic
 python-dotenv
 httpx
