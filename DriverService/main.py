@@ -81,12 +81,16 @@ async def health_check():
     """Health check endpoint for Kubernetes probes"""
     try:
         from database import database
-        await database.command("ping")
-        return {
-            "status": "healthy",
-            "service": "driverservice",
-            "database": "connected"
-        }
+        if database is not None:
+            # Use a simple query instead of ping for CosmosDB compatibility
+            await database.drivers.find_one({})
+            return {
+                "status": "healthy",
+                "service": "driverservice",
+                "database": "connected"
+            }
+        else:
+            raise Exception("Database connection failed")
     except Exception as e:
         raise HTTPException(status_code=503, detail="Service unhealthy")
 

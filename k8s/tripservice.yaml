@@ -16,7 +16,7 @@ spec:
         app: tripservice
         tier: backend
       annotations:
-        linkerd.io/inject: enabled
+        linkerd.io/inject: disabled
     spec:
       securityContext:
         runAsNonRoot: true
@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: tripservice
-        image: acruithuykhoigo.azurecr.io/tripservice:latest # CI/CD sẽ thay
+        image: acruithuykhoigo.azurecr.io/tripservice:3bb38e338d1b4610534b61d71562d142051c51a6
         ports:
         - containerPort: 8000
         envFrom:
