@@ -6,6 +6,17 @@ import pytest
 import sys
 import os
 
+# Mock database dependencies để tránh import conflicts
+from unittest.mock import MagicMock
+
+# Tạo mock database module
+class MockDatabase:
+    trips_collection = MagicMock()
+    ratings_collection = MagicMock()
+
+# Thêm mock vào sys.modules để crud.py import được
+sys.modules['database'] = MockDatabase()
+
 # Import trực tiếp bằng sys.path để tránh conflict
 trip_service_path = os.path.join(os.path.dirname(__file__), "..", "TripService")
 if trip_service_path not in sys.path:
@@ -19,11 +30,21 @@ if location_service_path in sys.path:
 # Import từ TripService với module prefix để tránh nhầm lẫn
 import importlib.util
 
-# Load TripService modules directly
+# Load TripService models.py trước
 spec = importlib.util.spec_from_file_location("trip_models", os.path.join(trip_service_path, "models.py"))
 trip_models = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(trip_models)
 
+# Load TripService schemas.py
+spec = importlib.util.spec_from_file_location("trip_schemas", os.path.join(trip_service_path, "schemas.py"))
+trip_schemas = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(trip_schemas)
+
+# Thêm models và schemas vào sys.modules để crud.py import được
+sys.modules['models'] = trip_models
+sys.modules['schemas'] = trip_schemas
+
+# Load TripService crud.py
 spec = importlib.util.spec_from_file_location("trip_crud", os.path.join(trip_service_path, "crud.py"))
 trip_crud = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(trip_crud)
