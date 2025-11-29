@@ -7,7 +7,20 @@ import sys
 import os
 
 # Thêm TripService vào PYTHONPATH
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "TripService"))
+trip_service_path = os.path.join(os.path.dirname(__file__), "..", "TripService")
+sys.path.insert(0, trip_service_path)
+
+# Debug: Print Python paths to see what's being imported
+print(f"Current working directory: {os.getcwd()}")
+print(f"TripService path: {trip_service_path}")
+print(f"Python path: {sys.path[:3]}")  # Show first 3 paths
+
+# Import trực tiếp với đường dẫn đầy đủ
+import models
+import crud
+
+print(f"models module: {models.__file__}")
+print(f"crud module: {crud.__file__}")
 
 from models import VehicleTypeEnum  # type: ignore
 from crud import calculate_estimated_fare  # type: ignore
