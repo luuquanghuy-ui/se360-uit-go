@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: driverservice
-        image: acruithuykhoigo.azurecr.io/driverservice:latest # CI/CD sẽ thay
+        image: acruithuykhoigo.azurecr.io/driverservice:ff3078b43101414d94578cbd516aa753c81c2de6
         ports:
         - containerPort: 8000
         envFrom:
