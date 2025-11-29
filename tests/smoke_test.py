@@ -17,11 +17,11 @@ if BASE_URL:
     BASE_URL = f"{BASE_URL}/api/users"
 # --- KẾT THÚC SỬA LỖI ---
 
-# Internal service URLs (only accessible from within cluster)
-INTERNAL_SERVICES = {
-    "tripservice": "http://tripservice:8000",
-    "driverservice": "http://driverservice:8000",
-    "locationservice": "http://locationservice:8000",
+# External service URLs via NGINX Ingress
+EXTERNAL_SERVICES = {
+    "tripservice": f"{BASE_URL.replace('/api/users', '/api/trips')}",
+    "driverservice": f"{BASE_URL.replace('/api/users', '/api/drivers')}",
+    "locationservice": f"{BASE_URL.replace('/api/users', '/api/locations')}",
 }
 
 class Color:
@@ -41,7 +41,7 @@ def log_test(message: str, status: str = "info"):
         "warn": Color.YELLOW
     }
     color = colors.get(status, Color.BLUE)
-    symbol = "✅" if status == "pass" else "❌" if status == "fail" else "ℹ️"
+    symbol = "[PASS]" if status == "pass" else "[FAIL]" if status == "fail" else "[INFO]"
     print(f"{color}{symbol} {message}{Color.END}")
 
 # Đổi tên hàm (thêm _) để Pytest (trong job 'test') tự động bỏ qua
@@ -188,7 +188,7 @@ def _test_root_endpoint() -> bool:
 def run_smoke_tests():
     """Run all smoke tests"""
     print("\n" + "="*60)
-    print("🔥 UIT-Go Smoke Tests")
+    print("UIT-Go Smoke Tests")
     print("="*60 + "\n")
 
     # --- SỬA LỖI: Kiểm tra BASE_URL trước khi chạy ---
@@ -220,21 +220,21 @@ def run_smoke_tests():
     results.append(bool(token_data))
     print()
 
-    # Test 5: TripService health (internal)
+    # Test 5: TripService health (external via Ingress)
     print()
-    trip_url = INTERNAL_SERVICES["tripservice"]
+    trip_url = EXTERNAL_SERVICES["tripservice"]
     log_test(f"Test 5: TripService Health ({trip_url}/health)", "info")
     results.append(_test_health_endpoint("TripService", trip_url))
     print()
 
-    # Test 6: LocationService health (internal)
-    loc_url = INTERNAL_SERVICES["locationservice"]
+    # Test 6: LocationService health (external via Ingress)
+    loc_url = EXTERNAL_SERVICES["locationservice"]
     log_test(f"Test 6: LocationService Health ({loc_url}/health)", "info")
     results.append(_test_health_endpoint("LocationService", loc_url))
     print()
 
-    # (Tuỳ chọn) Test 7: DriverService health (internal)
-    drv_url = INTERNAL_SERVICES["driverservice"]
+    # (Tuỳ chọn) Test 7: DriverService health (external via Ingress)
+    drv_url = EXTERNAL_SERVICES["driverservice"]
     log_test(f"Test 7: DriverService Health ({drv_url}/health)", "info")
     results.append(_test_health_endpoint("DriverService", drv_url))
     print()

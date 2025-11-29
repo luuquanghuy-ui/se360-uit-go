@@ -13,10 +13,10 @@ try:
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_KEY, ssl=True, decode_responses=True)
     else:
         redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-    redis_client.ping()
-    print(f"Đã kết nối thành công đến Redis tại {REDIS_HOST}:{REDIS_PORT}")
+    # Note: Remove sync ping() call, will test in async health check
+    print(f"Đã khởi tạo Redis client tại {REDIS_HOST}:{REDIS_PORT}")
 except Exception as e:
-    print(f"Lỗi khi kết nối Redis: {e}")
+    print(f"Lỗi khi khởi tạo Redis: {e}")
     redis_client = None
 
 DRIVER_GEO_KEY = "drivers:online"

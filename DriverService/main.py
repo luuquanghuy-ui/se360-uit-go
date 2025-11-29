@@ -80,8 +80,8 @@ def read_root():
 async def health_check():
     """Health check endpoint for Kubernetes probes"""
     try:
-        from database import db
-        await db.command("ping")
+        from database import database
+        await database.command("ping")
         return {
             "status": "healthy",
             "service": "driverservice",

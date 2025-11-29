@@ -30,7 +30,8 @@ async def health_check():
     """Health check endpoint for Kubernetes probes"""
     try:
         # Test MongoDB connection
-        from database import db
+        from database import get_database
+        db = get_database()
         await db.command("ping")
         return {
             "status": "healthy",
