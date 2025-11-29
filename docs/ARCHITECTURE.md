@@ -182,30 +182,37 @@ sequenceDiagram
 
 ### Service Overview
 
-| Service | Database | Port | Responsibility |
-|---------|----------|------|----------------|
-| **UserService** | PostgreSQL | 8000 | User authentication, JWT issuance (user + service tokens), user profiles |
-| **TripService** | MongoDB | 8002 | Trip lifecycle, matching logic, orchestrates other services, Mapbox integration |
-| **DriverService** | MongoDB | 8003 | Driver profiles, driver wallet, internal driver info endpoints |
-| **LocationService** | Redis | 8001 | Real-time location tracking (Redis GEO), WebSocket connections, notifications |
-| **PaymentService** | MongoDB | 8004 | User wallet, VNPay integration, payment processing & callbacks |
+| Service | Database | Port (K8s) | Port (Local) | Responsibility |
+|---------|----------|------------|--------------|----------------|
+| **UserService** | PostgreSQL | 8000 | 8000 | User authentication, JWT issuance (user + service tokens), user profiles |
+| **TripService** | MongoDB | 8000 | 8002 | Trip lifecycle, matching logic, orchestrates other services, Mapbox integration |
+| **DriverService** | MongoDB | 8000 | 8003 | Driver profiles, driver wallet, internal driver info endpoints |
+| **LocationService** | Redis | 8000 | 8001 | Real-time location tracking (Redis GEO), WebSocket connections, notifications |
+| **PaymentService** | MongoDB | 8000 | 8004 | User wallet, VNPay integration, payment processing & callbacks |
+
+**Lưu ý:** Trong Kubernetes, tất cả services đều expose trên port 8000 bên trong cluster. Các ports khác nhau (8001-8004) chỉ dùng cho local development với docker-compose để dễ test từ host machine.
 
 ### Network Configuration
 
 **Local Development (Docker Compose):**
-- External access: `http://localhost:800X`
-- Internal communication: `http://servicename:8000` (Docker network DNS)
+- External access: `http://localhost:800X` (mỗi service có port riêng để dễ test)
+  - UserService: `http://localhost:8000`
+  - LocationService: `http://localhost:8001`
+  - TripService: `http://localhost:8002`
+  - DriverService: `http://localhost:8003`
+  - PaymentService: `http://localhost:8004`
+- Internal communication: `http://servicename:8000` (Docker network DNS, tất cả đều dùng port 8000)
 
 **Production (Kubernetes - Ingress API Gateway Pattern):**
 - External access: `http://<INGRESS-EXTERNAL-IP>` → NGINX Ingress Controller (LoadBalancer)
 - Ingress routes traffic based on path:
-  - `/api/users/*` → UserService (ClusterIP)
-  - `/api/drivers/*` → DriverService (ClusterIP)
-  - `/api/trips/*` → TripService (ClusterIP)
-  - `/api/locations/*` → LocationService (ClusterIP)
-  - `/api/payments/*` → PaymentService (ClusterIP)
-  - `/ws` → LocationService WebSocket (ClusterIP)
-- Internal service-to-service: `http://servicename:8000` (Kubernetes DNS)
+  - `/api/users/*` → UserService (ClusterIP, port 8000)
+  - `/api/drivers/*` → DriverService (ClusterIP, port 8000)
+  - `/api/trips/*` → TripService (ClusterIP, port 8000)
+  - `/api/locations/*` → LocationService (ClusterIP, port 8000)
+  - `/api/payments/*` → PaymentService (ClusterIP, port 8000)
+  - `/ws` → LocationService WebSocket (ClusterIP, port 8000)
+- Internal service-to-service: `http://servicename:8000` (Kubernetes DNS, tất cả đều dùng port 8000)
 - All services use ClusterIP (internal only, không exposed trực tiếp)
 
 ---
@@ -270,8 +277,10 @@ flowchart TB
     TS -->|Routing API| MAPBOX
 
     PS -->|Payment URL| VNPAY
-    VNPAY -->|Callback via Ingress| INGRESS
-    INGRESS -->|/api/payments/callback| PS
+    VNPAY -->|IPN Callback via Ingress| INGRESS
+    INGRESS -->|/api/payments/v1/payment/vnpay_ipn| PS
+    VNPAY -->|Return URL via Ingress| INGRESS
+    INGRESS -->|/api/payments/v1/payment/vnpay_return| PS
 
     %% Database connections
     US --- POSTGRES
@@ -380,7 +389,7 @@ sequenceDiagram
     PA->>TS: POST /trips/{id}/complete<br/>{actual_fare: 50000}
 
     alt payment_method == "E-Wallet"
-        TS->>PS: POST /process-payment<br/>{trip_id, user_id, driver_id, amount: 50000}
+        TS->>PS: POST /v1/payment/process<br/>{trip_id, user_id, driver_id, amount: 50000}
 
         Note over PS: Check wallet balance
         PS->>MONGO: Find user_wallet
@@ -392,7 +401,8 @@ sequenceDiagram
             TS-->>PA: 200 OK {payUrl}
 
             PA->>VNPAY: Redirect to payUrl<br/>(User completes payment)
-            VNPAY-->>PS: GET /payment-return<br/>?vnp_TxnRef&vnp_ResponseCode=00&vnp_SecureHash
+            VNPAY-->>PS: GET /v1/payment/vnpay_ipn<br/>?vnp_TxnRef&vnp_ResponseCode=00&vnp_SecureHash
+            VNPAY-->>PA: Redirect to /v1/payment/vnpay_return<br/>?vnp_TxnRef&vnp_ResponseCode=00
 
             Note over PS: Verify hash & update transaction
             PS->>MONGO: Update transaction<br/>status: SUCCESS
@@ -521,19 +531,58 @@ Body: {
 
 #### TripService → PaymentService
 ```
-POST http://paymentservice:8000/process-payment
+# Process payment (create VNPay link if needed)
+# NOTE: TripService currently calls /process-payment but PaymentService has /v1/payment/process
+# This needs to be aligned in the code
+POST http://paymentservice:8000/v1/payment/process
 Body: {
   "trip_id": "...",
   "user_id": "...",
   "driver_id": "...",
-  "amount": 50000,
-  "payment_method": "E-Wallet"
+  "amount": 50000
 }
 Response: {
-  "status": "success",
-  "payUrl": "https://sandbox.vnpayment.vn/..." (if needed),
+  "status": "success" | "FAILED",
+  "payUrl": "https://sandbox.vnpayment.vn/..." (if wallet insufficient),
   "transaction_id": "..."
 }
+
+# Get driver wallet
+GET http://paymentservice:8000/v1/wallets/{driver_id}
+Response: {
+  "driver_id": "...",
+  "balance": 500000,
+  "currency": "VND",
+  "updated_at": "2025-01-15T10:20:00Z"
+}
+
+# Top-up driver wallet
+POST http://paymentservice:8000/v1/wallets/top-up
+Body: {
+  "driver_id": "...",
+  "amount": 100000
+}
+
+# VNPay IPN callback (called by VNPay server)
+GET http://paymentservice:8000/v1/payment/vnpay_ipn
+Query params: vnp_TxnRef, vnp_ResponseCode, vnp_SecureHash, ...
+Response: {"RspCode": "00", "Message": "Confirm Success"}
+
+# VNPay return callback (redirected from browser)
+GET http://paymentservice:8000/v1/payment/vnpay_return
+Query params: vnp_TxnRef, vnp_ResponseCode, vnp_SecureHash, ...
+Response: {"message": "Thanh toán thành công", "vnp_TxnRef": "...", "vnp_ResponseCode": "00"}
+```
+
+#### PaymentService → TripService
+```
+# Update trip payment status (internal API)
+PUT http://tripservice:8000/trips/{trip_id}/payment
+Body: {
+  "status": "SUCCESS" | "FAILED",
+  "transaction_id": "..."
+}
+Response: {"message": "Payment status updated successfully"}
 ```
 
 #### TripService → Mapbox API
@@ -1002,7 +1051,8 @@ params = {
     "vnp_OrderInfo": f"Payment for trip {trip_id}",
     "vnp_OrderType": "other",
     "vnp_Locale": "vn",
-    "vnp_ReturnUrl": f"{BASE_URL}/payment-return",
+    "vnp_ReturnUrl": f"{BASE_URL}/v1/payment/vnpay_return",
+    "vnp_IpUrl": f"{BASE_URL}/v1/payment/vnpay_ipn",
     "vnp_IpAddr": client_ip,
     "vnp_CreateDate": datetime.now().strftime("%Y%m%d%H%M%S")
 }
@@ -1024,14 +1074,23 @@ payment_url = f"https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?{urlencode(pa
 User clicks payUrl → VNPay payment page → User completes payment
 ```
 
-**Step 3: VNPay Callback**
+**Step 3: VNPay Callbacks**
 ```
-GET {BASE_URL}/payment-return
+# IPN (Instant Payment Notification) - Called by VNPay server
+GET {BASE_URL}/v1/payment/vnpay_ipn
   ?vnp_TxnRef=VNP20250115...
   &vnp_Amount=5000000
   &vnp_ResponseCode=00
   &vnp_TransactionNo=14379497
   &vnp_SecureHash=abc123...
+Response: {"RspCode": "00", "Message": "Confirm Success"}
+
+# Return URL - Browser redirect after payment
+GET {BASE_URL}/v1/payment/vnpay_return
+  ?vnp_TxnRef=VNP20250115...
+  &vnp_ResponseCode=00
+  &vnp_SecureHash=abc123...
+Response: {"message": "Thanh toán thành công", "vnp_TxnRef": "...", "vnp_ResponseCode": "00"}
 ```
 
 **Step 4: Verify & Process**

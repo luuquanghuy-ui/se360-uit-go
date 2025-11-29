@@ -10,13 +10,15 @@ UIT-Go là nền tảng gọi xe hiện đại được xây dựng bằng **Fas
 
 ### Service matrix
 
-| Service | Port | Database | Trách nhiệm chính |
-|---------|------|----------|-------------------|
-| `UserService` | 8000 | PostgreSQL | Đăng ký/đăng nhập, JWT user + service token |
-| `LocationService` | 8001 | Redis GEO | Theo dõi vị trí real-time, WebSocket notify |
-| `TripService` | 8002 | CosmosDB (Mongo API) | Dàn xếp chuyến đi, gọi Mapbox, điều phối drivers |
-| `DriverService` | 8003 | CosmosDB (Mongo API) | Hồ sơ tài xế, ví tài xế, internal APIs |
-| `PaymentService` | 8004 | CosmosDB (Mongo API) | Ví người dùng, tích hợp VNPay, reconciliation |
+| Service | Port (K8s) | Port (Local) | Database | Trách nhiệm chính |
+|---------|-----------|--------------|----------|-------------------|
+| `UserService` | 8000 | 8000 | PostgreSQL | Đăng ký/đăng nhập, JWT user + service token |
+| `LocationService` | 8000 | 8001 | Redis GEO | Theo dõi vị trí real-time, WebSocket notify |
+| `TripService` | 8000 | 8002 | CosmosDB (Mongo API) | Dàn xếp chuyến đi, gọi Mapbox, điều phối drivers |
+| `DriverService` | 8000 | 8003 | CosmosDB (Mongo API) | Hồ sơ tài xế, ví tài xế, internal APIs |
+| `PaymentService` | 8000 | 8004 | CosmosDB (Mongo API) | Ví người dùng, tích hợp VNPay, reconciliation |
+
+**Lưu ý:** Trong Kubernetes, tất cả services đều expose trên port 8000 bên trong cluster. Các ports khác nhau (8001-8004) chỉ dùng cho local development với docker-compose.
 
 ## Ngăn xếp kỹ thuật
 
