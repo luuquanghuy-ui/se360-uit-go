@@ -84,7 +84,7 @@ jobs:
 
     - name: Run TruffleHog (Secrets)
       run: |
-        trufflehog filesystem --json . > trufflehog-report.json || true
+        trufflehog filesystem --no-update --json . > trufflehog-report.json || true
 
     - name: Run Checkov (Terraform IaC)
       run: |
