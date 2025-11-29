@@ -17,6 +17,7 @@ spec:
         tier: backend
       annotations:
         linkerd.io/inject: enabled
+        config.linkerd.io/skip-outbound-ports: "27017,10255,443,80"
     spec:
       securityContext:
         runAsNonRoot: true
