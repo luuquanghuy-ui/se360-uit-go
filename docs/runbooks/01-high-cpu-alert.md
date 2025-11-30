@@ -121,8 +121,3 @@ az redis show --name redis-uitgohuy-prod --resource-group rg-uitgohuy-prod --que
    - Set up additional alerts for request rate
    - Implement custom metrics tracking
 
-## Contacts
-
-- **Infrastructure Team**: [Contact]
-- **Development Team**: [Contact]
-- **Security Team**: [Contact]

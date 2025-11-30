@@ -143,5 +143,3 @@ A: Người đề xuất quyết định, nhưng cả team phải review & appro
 A: ADR ghi lại QUYẾT ĐỊNH đã chốt. RFC (Request for Comments) là đề xuất, discussion.
 
 ---
-
-**Made with ❤️ by UIT-GO Team**
