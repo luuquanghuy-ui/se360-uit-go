@@ -211,13 +211,28 @@ async def update_driver_balance(driver_id: str, request: schemas.UpdateBalanceRe
 
 
 
+async def get_user_id_by_email(email: str) -> Optional[str]:
+    """Lấy user_id từ UserService bằng email."""
+    try:
+        url = f"{USER_SERVICE_URL}/users/email/{email}"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url)
+            if response.status_code == 200:
+                user_data = response.json()
+                return user_data.get("id")
+            return None
+    except Exception as e:
+        print(f"Lỗi khi gọi UserService lấy user_id: {e}")
+        return None
+
+
 async def notify_location_service_offline(driver_id: str):
     url = f"{LOCATION_SERVICE_URL}/driver/{driver_id}/location"
     print(f"DriverService: Báo offline cho tài xế {driver_id} tới {url}")
     try:
         async with httpx.AsyncClient() as client:
             response = await client.delete(url)
-            response.raise_for_status() 
+            response.raise_for_status()
             print(f"DriverService: Đã báo LocationService xóa {driver_id} khỏi Redis thành công.")
     except httpx.HTTPStatusError as e:
         print(f"DriverService: Lỗi khi báo offline cho LocationService (HTTP {e.response.status_code}): {e.response.text}")

@@ -95,12 +95,22 @@ async def health_check():
         raise HTTPException(status_code=503, detail="Service unhealthy")
 
 
-@app.post("/drivers/", response_model=schemas.DriverResponse, status_code=status.HTTP_201_CREATED)
-async def create_driver_profile_endpoint(
-    user_id: str,
-    driver_create: schemas.DriverCreate
+@app.post("/drivers/me", response_model=schemas.DriverResponse, status_code=status.HTTP_201_CREATED)
+async def create_my_driver_profile(
+    driver_create: schemas.DriverCreate,
+    token: str = Depends(oauth2_scheme)
 ):
-    driver = await crud.create_driver_profile(driver_create, user_id) 
+    # Lấy user_id từ token
+    user_email = await auth.verify_token(token)
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Token không hợp lệ")
+
+    # Lấy user_id từ email thông qua UserService hoặc models
+    user_id = await crud.get_user_id_by_email(user_email)
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Không tìm thấy user_id cho email này")
+
+    driver = await crud.create_driver_profile(driver_create, user_id)
     if not driver:
         raise HTTPException(status_code=400, detail="Không thể tạo hồ sơ tài xế (có thể đã tồn tại hoặc user_id không hợp lệ)")
     return driver 
