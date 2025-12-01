@@ -97,8 +97,8 @@ async def health_check():
 
 @app.post("/drivers/", response_model=schemas.DriverResponse, status_code=status.HTTP_201_CREATED)
 async def create_driver_profile_endpoint(
-    driver_create: schemas.DriverCreate,
-    user_id: str 
+    user_id: str,
+    driver_create: schemas.DriverCreate
 ):
     driver = await crud.create_driver_profile(driver_create, user_id) 
     if not driver:
