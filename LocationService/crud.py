@@ -24,18 +24,17 @@ async def get_nearby_drivers(longitude: float, latitude: float, radius_km: int, 
 
         print(f"DEBUG: Calling GEORADIUS with key={DRIVER_GEO_KEY}, longitude={longitude}, latitude={latitude}, radius_m={radius_m}")
 
-        drivers = await redis_client.execute_command(
-            "GEORADIUS",
+        # Use georadius method instead of execute_command for better compatibility
+        drivers = await redis_client.georadius(
             DRIVER_GEO_KEY,
             float(longitude),  # longitude first
             float(latitude),   # latitude second
             float(radius_m),   # radius in meters
-            "m",
-            "WITHDIST",
-            "WITHCOORD",
-            "COUNT",
-            limit,
-            "ASC"
+            unit="m",
+            withdist=True,
+            withcoord=True,
+            count=limit,
+            sort="ASC"
         )
 
         print(f"DEBUG: GEORADIUS result type: {type(drivers)}, length: {len(drivers) if drivers else 0}")
