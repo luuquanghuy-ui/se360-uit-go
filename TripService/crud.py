@@ -619,20 +619,20 @@ async def cancel_trip(trip_id: str, cancellation: schemas.CancellationCreate) ->
         cancelled_at=datetime.now()
     )
     
-    update_data = {
-        "status": models.TripStatusEnum.CANCELLED.value,
-        "cancellation": cancellation_data.dict(),
-        "$push": {
-            "history": {
-                "status": models.TripStatusEnum.CANCELLED.value,
-                "timestamp": datetime.now()
-            }
-        }
-    }
-    
     result = await trips_collection.update_one(
         {"_id": ObjectId(trip_id)},
-        {"$set": update_data}
+        {
+            "$set": {
+                "status": models.TripStatusEnum.CANCELLED.value,
+                "cancellation": cancellation_data.dict(),
+            },
+            "$push": {
+                "history": {
+                    "status": models.TripStatusEnum.CANCELLED.value,
+                    "timestamp": datetime.now()
+                }
+            }
+        }
     )
     
     if result.modified_count:

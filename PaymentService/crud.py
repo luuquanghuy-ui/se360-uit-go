@@ -4,7 +4,9 @@ import os
 import hashlib
 import hmac
 import asyncio
-import logging # <-- Thêm logging
+import logging
+import httpx
+import uuid
 from datetime import datetime, timezone
 from typing import Dict, Optional, Any
 from urllib.parse import urlencode, quote_plus
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 VNP_TMN_CODE = os.getenv("VNP_TMN_CODE")
 VNP_HASH_SECRET = os.getenv("VNP_HASH_SECRET")
 VNP_URL = os.getenv("VNP_URL")
+TRIP_SERVICE_URL = os.getenv("TRIP_SERVICE_URL", "http://tripservice:8000")
 # Bỏ đọc BASE_URL trực tiếp ở đây
 # DRIVER_SERVICE_URL = os.getenv("DRIVER_SERVICE_URL")
 APP_COMMISSION_RATE = 0.20
@@ -144,7 +147,7 @@ async def process_vnpay_payment(request: schemas.ProcessPaymentRequest) -> Dict:
 async def get_or_create_wallet(driver_id: str) -> Optional[Dict[str, Any]]:
     # ... (Giữ nguyên code của bạn) ...
     wallets_coll: Optional[AsyncIOMotorCollection] = await get_wallets_collection()
-    if not wallets_coll:
+    if wallets_coll is None:
         logger.error("Lỗi: Không lấy được wallets_collection trong get_or_create_wallet")
         return None
     wallet_data = await wallets_coll.find_one({"driver_id": driver_id})
@@ -163,7 +166,7 @@ async def top_up_driver_wallet(request: schemas.TopUpRequest) -> Optional[Dict[s
     # ... (Giữ nguyên code của bạn, chỉ thêm logger) ...
     wallets_coll: Optional[AsyncIOMotorCollection] = await get_wallets_collection()
     transactions_coll: Optional[AsyncIOMotorCollection] = await get_transactions_collection()
-    if not wallets_coll or not transactions_coll:
+    if wallets_coll is None or transactions_coll is None:
         logger.error("Lỗi: Không lấy được collection trong top_up_driver_wallet")
         return None
     wallet = await get_or_create_wallet(request.driver_id)
@@ -189,9 +192,9 @@ async def top_up_driver_wallet(request: schemas.TopUpRequest) -> Optional[Dict[s
         logger.error(f"Lỗi khi cập nhật số dư cho ví của tài xế {request.driver_id}")
         return None
 
-async def handle_vnpay_return(vnpay_response_data: Dict[str, Any]) -> bool: 
+async def handle_vnpay_return(vnpay_response_data: Dict[str, Any]) -> bool:
     transactions_coll: Optional[AsyncIOMotorCollection] = await get_transactions_collection()
-    if not transactions_coll: return False
+    if transactions_coll is None: return False
 
     # --- [QUAN TRỌNG] KIỂM TRA SECURE HASH ---
     input_params = {k: v for k, v in vnpay_response_data.items() if k.startswith('vnp_') and k != 'vnp_SecureHash'}
@@ -344,7 +347,7 @@ async def credit_driver_wallet(driver_id: str, amount: float, trip_id: str) -> b
     """Cộng tiền vào ví tài xế (do PaymentService quản lý) và ghi log giao dịch."""
     wallets_coll: Optional[AsyncIOMotorCollection] = await get_wallets_collection()
     transactions_coll: Optional[AsyncIOMotorCollection] = await get_transactions_collection()
-    if not wallets_coll or not transactions_coll:
+    if wallets_coll is None or transactions_coll is None:
         logger.error(f"Không lấy được collection trong credit_driver_wallet cho driver {driver_id}")
         return False
 
@@ -381,5 +384,223 @@ async def credit_driver_wallet(driver_id: str, amount: float, trip_id: str) -> b
         logger.error(f"Lỗi khi cộng tiền vào ví tài xế {driver_id}: {e}", exc_info=True)
         return False
 # === [HẾT PHẦN THÊM] ===
+
+# === [TRIP COMPLETION AND MOCK BANKING FUNCTIONS] ===
+
+def calculate_trip_fare(distance_km: float, base_rate_per_km: float = 5000.0, commission_rate: float = 0.20) -> schemas.TripFareCalculation:
+    """
+    Tính toán cước phí chuyến đi dựa trên khoảng cách.
+    - 5,000 VND cho mỗi km
+    - 20% hoa hồng cho ứng dụng
+    """
+    total_fare = distance_km * base_rate_per_km
+    commission_amount = total_fare * commission_rate
+    driver_earning = total_fare - commission_amount
+
+    return schemas.TripFareCalculation(
+        distance_km=distance_km,
+        base_fare=base_rate_per_km,
+        total_fare=total_fare,
+        commission_rate=commission_rate,
+        commission_amount=commission_amount,
+        driver_earning=driver_earning
+    )
+
+async def process_mock_bank_transfer(request: schemas.MockBankTransferRequest) -> schemas.MockBankTransferResponse:
+    """
+    Mock banking system - giả lập chuyển khoản ngân hàng.
+    Luôn thành công với xác suất cao để demo.
+    """
+    try:
+        # Giả lập độ trễ xử lý ngân hàng
+        await asyncio.sleep(1)
+
+        # Tạo transaction ID giả
+        transaction_id = f"TXN_{uuid.uuid4().hex[:16].upper()}"
+
+        # Giả lập 90% thành công
+        import random
+        success = random.random() < 0.9
+
+        if success:
+            return schemas.MockBankTransferResponse(
+                success=True,
+                transaction_id=transaction_id,
+                message=f"Chuyển khoản {request.amount:,.0f} VNĐ từ tài khoản {request.from_account} đến {request.to_account} thành công.",
+                timestamp=datetime.now(timezone.utc)
+            )
+        else:
+            return schemas.MockBankTransferResponse(
+                success=False,
+                transaction_id=transaction_id,
+                message="Giao dịch thất bại: Không đủ số dư hoặc lỗi hệ thống ngân hàng.",
+                timestamp=datetime.now(timezone.utc)
+            )
+    except Exception as e:
+        logger.error(f"Lỗi trong mock bank transfer: {e}", exc_info=True)
+        return schemas.MockBankTransferResponse(
+            success=False,
+            transaction_id="ERROR",
+            message=f"Lỗi hệ thống: {str(e)}",
+            timestamp=datetime.now(timezone.utc)
+        )
+
+async def process_trip_completion_payment(request: schemas.TripCompletionRequest) -> schemas.TripCompletionResponse:
+    """
+    Xử lý thanh toán khi tài xế hoàn thành chuyến đi.
+    Hỗ trợ cả chuyển khoản ngân hàng (mock) và tiền mặt.
+    """
+    try:
+        # Bước 1: Tính toán cước phí
+        fare_details = calculate_trip_fare(request.distance_km)
+        logger.info(f"Chuyến {request.trip_id}: Quãng đường {request.distance_km:.1f}km, Tổng cước: {fare_details.total_fare:,.0f} VNĐ, Tài xế nhận: {fare_details.driver_earning:,.0f} VNĐ")
+
+        # Bước 2: Xử lý thanh toán theo phương thức
+        bank_transfer_result = None
+        payment_status = "FAILED"
+        transaction_id = None
+
+        if request.payment_method.upper() == "BANK_TRANSFER":
+            # Xử lý chuyển khoản ngân hàng (mock)
+            if not request.user_bank_info:
+                return schemas.TripCompletionResponse(
+                    success=False,
+                    trip_id=request.trip_id,
+                    fare_details=fare_details,
+                    payment_method=request.payment_method,
+                    payment_status="FAILED",
+                    message="Thiếu thông tin ngân hàng để chuyển khoản"
+                )
+
+            bank_request = schemas.MockBankTransferRequest(
+                from_account=request.user_bank_info.get("account_number", "USER_ACCOUNT"),
+                to_account=f"DRIVER_{request.driver_id}",
+                amount=fare_details.total_fare,
+                description=f"Thanh toan chuyen di {request.trip_id}"
+            )
+
+            bank_transfer_result = await process_mock_bank_transfer(bank_request)
+
+            if bank_transfer_result.success:
+                payment_status = "SUCCESS"
+                transaction_id = bank_transfer_result.transaction_id
+            else:
+                payment_status = "FAILED"
+
+        elif request.payment_method.upper() == "CASH":
+            # Thanh toán tiền mặt - mặc định thành công (tài xế xác nhận đã nhận tiền)
+            payment_status = "SUCCESS"
+            transaction_id = f"CASH_{uuid.uuid4().hex[:16].upper()}"
+
+        else:
+            return schemas.TripCompletionResponse(
+                success=False,
+                trip_id=request.trip_id,
+                fare_details=fare_details,
+                payment_method=request.payment_method,
+                payment_status="FAILED",
+                message="Phương thức thanh toán không hợp lệ. Chỉ hỗ trợ BANK_TRANSFER hoặc CASH."
+            )
+
+        # Bước 3: Nếu thanh toán thành công, cộng tiền vào ví tài xế
+        driver_wallet_updated = False
+        new_driver_balance = None
+
+        if payment_status == "SUCCESS":
+            # Lấy hoặc tạo ví cho tài xế
+            wallet_success = await credit_driver_wallet(
+                driver_id=request.driver_id,
+                amount=fare_details.driver_earning,
+                trip_id=request.trip_id
+            )
+
+            if wallet_success:
+                driver_wallet_updated = True
+                # Lấy số dư mới
+                wallet = await get_or_create_wallet(request.driver_id)
+                if wallet:
+                    new_driver_balance = wallet.get("balance", 0.0)
+
+                logger.info(f"Đã cộng {fare_details.driver_earning:,.0f} VNĐ vào ví tài xế {request.driver_id}")
+            else:
+                logger.error(f"Lỗi: Không thể cộng tiền vào ví tài xế {request.driver_id}")
+                payment_status = "PARTIAL_SUCCESS"  # Thanh toán thành công nhưng cộng tiền thất bại
+
+        # Bước 4: Lưu giao dịch vào database
+        await save_trip_completion_transaction(
+            trip_id=request.trip_id,
+            user_id=request.user_id,
+            driver_id=request.driver_id,
+            fare_details=fare_details,
+            payment_method=request.payment_method,
+            payment_status=payment_status,
+            transaction_id=transaction_id
+        )
+
+        # Bước 5: Thông báo cho TripService về trạng thái thanh toán
+        if payment_status in ["SUCCESS", "PARTIAL_SUCCESS"]:
+            await notify_trip_service_payment_status(
+                trip_id=request.trip_id,
+                transaction_id=transaction_id or "",
+                status=models.TransactionStatus.SUCCESS if payment_status == "SUCCESS" else models.TransactionStatus.FAILED
+            )
+
+        return schemas.TripCompletionResponse(
+            success=payment_status in ["SUCCESS", "PARTIAL_SUCCESS"],
+            trip_id=request.trip_id,
+            fare_details=fare_details,
+            payment_method=request.payment_method,
+            payment_status=payment_status,
+            transaction_id=transaction_id,
+            bank_transfer_result=bank_transfer_result,
+            driver_wallet_updated=driver_wallet_updated,
+            new_driver_balance=new_driver_balance
+        )
+
+    except Exception as e:
+        logger.error(f"Lỗi trong process_trip_completion_payment: {e}", exc_info=True)
+        return schemas.TripCompletionResponse(
+            success=False,
+            trip_id=request.trip_id,
+            fare_details=calculate_trip_fare(request.distance_km),  # Vẫn tính fare để client biết
+            payment_method=request.payment_method,
+            payment_status="FAILED",
+            message=f"Lỗi hệ thống: {str(e)}"
+        )
+
+async def save_trip_completion_transaction(
+    trip_id: str,
+    user_id: str,
+    driver_id: str,
+    fare_details: schemas.TripFareCalculation,
+    payment_method: str,
+    payment_status: str,
+    transaction_id: Optional[str] = None
+):
+    """Lưu giao dịch hoàn thành chuyến đi vào database"""
+    transactions_coll: Optional[AsyncIOMotorCollection] = await get_transactions_collection()
+    if transactions_coll is None:
+        logger.error("Không thể lấy transactions_collection để lưu giao dịch chuyến đi")
+        return
+
+    try:
+        transaction = models.Transaction(
+            transaction_id=transaction_id or f"TRIP_{uuid.uuid4().hex[:16].upper()}",
+            user_id=user_id,
+            trip_id=trip_id,
+            amount=fare_details.total_fare,
+            transaction_type=models.TransactionType.PAYMENT,
+            payment_method=payment_method,
+            status=models.TransactionStatus.SUCCESS if payment_status == "SUCCESS" else models.TransactionStatus.FAILED,
+            description=f"Thanh toán chuyến đi {trip_id} ({payment_method})"
+        )
+
+        await transactions_coll.insert_one(transaction.model_dump(by_alias=True, exclude={"id"}))
+        logger.info(f"Đã lưu giao dịch chuyến đi {trip_id} với trạng thái {payment_status}")
+
+    except Exception as e:
+        logger.error(f"Lỗi khi lưu giao dịch chuyến đi {trip_id}: {e}", exc_info=True)
+
+# === [END TRIP COMPLETION AND MOCK BANKING FUNCTIONS] ===
 
 

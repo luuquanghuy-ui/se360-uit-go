@@ -124,26 +124,40 @@ async def update_my_driver_profile(
     update_data: schemas.DriverUpdate,
     current_driver: models.Driver = Depends(get_current_driver)
 ):
+    updated_driver = await crud.update_driver_profile(current_driver.id, update_data)
+    if not updated_driver:
+        raise HTTPException(status_code=400, detail="Không thể cập nhật hồ sơ tài xế")
     return updated_driver
 
 @app.post("/drivers/me/online", response_model=schemas.DriverResponse)
 async def set_driver_status_online(current_driver: models.Driver = Depends(get_current_driver)):
+    updated_driver = await crud.update_driver_status(current_driver.id, "ONLINE")
+    if not updated_driver:
+        raise HTTPException(status_code=400, detail="Không thể cập nhật trạng thái tài xế")
     return updated_driver
 
 @app.post("/drivers/me/offline", response_model=schemas.DriverResponse)
 async def set_driver_status_offline(current_driver: models.Driver = Depends(get_current_driver)):
+    updated_driver = await crud.update_driver_status(current_driver.id, "OFFLINE")
+    if not updated_driver:
+        raise HTTPException(status_code=400, detail="Không thể cập nhật trạng thái tài xế")
     return updated_driver
 
 @app.post("/drivers/me/update-balance", response_model=schemas.WalletResponse)
 async def update_my_balance_endpoint(
     request: schemas.UpdateBalanceRequest,
-    current_driver: models.Driver = Depends(get_current_driver) 
+    current_driver: models.Driver = Depends(get_current_driver)
 ):
+    updated_wallet = await crud.update_driver_balance(current_driver.id, request)
+    if not updated_wallet:
+        raise HTTPException(status_code=400, detail="Không thể cập nhật ví tài xế")
     return updated_wallet
 
 @app.get("/drivers/me/wallet", response_model=schemas.WalletResponse)
 async def get_my_wallet(current_driver: models.Driver = Depends(get_current_driver)):
-
+    wallet = await crud.get_or_create_driver_wallet(current_driver.id)
+    if not wallet:
+        raise HTTPException(status_code=404, detail="Không tìm thấy ví tài xế")
     return wallet
 
 

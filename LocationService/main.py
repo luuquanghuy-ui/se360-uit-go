@@ -139,13 +139,15 @@ async def ws_driver_location(websocket: WebSocket, driver_id: str):
             
             try:
                 location = schemas.LocationUpdate(**data)
+                logger.info(f"Tài xế {driver_id} gửi vị trí: lat={location.latitude}, lng={location.longitude}")
                 await crud.update_driver_location(
-                    driver_id, 
-                    location.longitude, 
+                    driver_id,
+                    location.longitude,
                     location.latitude
                 )
-            except Exception:
-                logger.warning(f"Tài xế {driver_id}: Dữ liệu nhận được không phải định dạng Vị trí: {data}")
+                logger.info(f"Đã lưu vị trí tài xế {driver_id} vào Redis")
+            except Exception as e:
+                logger.warning(f"Tài xế {driver_id}: Dữ liệu nhận được không phải định dạng Vị trí: {data}, lỗi: {e}")
                 continue
             
     except WebSocketDisconnect:
@@ -174,11 +176,17 @@ async def get_nearby_drivers(
     
     return drivers
 
+@app.post("/update")
+async def update_location(location: schemas.LocationUpdate):
+    await crud.update_driver_location(location.driver_id, location.longitude, location.latitude)
+    logger.info(f"Tài xế {location.driver_id} gửi vị trí: lat={location.latitude}, lng={location.longitude}")
+    return {"message": "Vị trí đã được cập nhật thành công", "driver_id": location.driver_id}
+
 @app.delete("/driver/{driver_id}/location")
 async def set_driver_offline(driver_id: str):
     await crud.remove_driver_location(driver_id)
-    
-    driver_manager.disconnect(driver_id) 
+
+    driver_manager.disconnect(driver_id)
     logger.info(f"Tài xế {driver_id} đã offline (gọi qua API).")
     return {"message": f"Tài xế {driver_id} đã được xóa khỏi Redis và WSS."}
 

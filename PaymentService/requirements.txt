@@ -1,7 +1,8 @@
-    # PaymentService/requirements.txt
-    fastapi
-    uvicorn[standard]
-    motor
-    pydantic
-    python-dotenv
-    httpx
+# PaymentService/requirements.txt
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+motor==3.3.2
+pymongo==4.6.0
+pydantic[email]
+python-dotenv==1.0.0
+httpx==0.25.2

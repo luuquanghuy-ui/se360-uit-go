@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: locationservice
-        image: acruithuykhoigo.azurecr.io/locationservice:c3c83b6938314ea6442db7435ee576ba05ab0b82
+        image: acruithuykhoigo.azurecr.io/locationservice:emergency-fix
         ports:
         - containerPort: 8000
         env:

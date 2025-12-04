@@ -161,6 +161,35 @@ async def handle_vnpay_return_message(request: Request):
     }
 # === [HẾT PHẦN SỬA ĐỔI] ===
 
+# === ENDPOINTS CHO TRIP COMPLETION ===
+
+@app.post("/v1/trip-completion/complete", response_model=schemas.TripCompletionResponse, tags=["Trip Completion"])
+async def complete_trip_payment(request: schemas.TripCompletionRequest):
+    """
+    Xử lý thanh toán khi tài xế hoàn thành chuyến đi.
+    Hỗ trợ cả chuyển khoản ngân hàng (mock) và tiền mặt.
+    """
+    logger.info(f"Nhận yêu cầu hoàn thành chuyến đi: {request.trip_id}, phương thức: {request.payment_method}")
+
+    result = await crud.process_trip_completion_payment(request)
+
+    if result.success:
+        logger.info(f"Xử lý thanh toán chuyến {request.trip_id} thành công")
+    else:
+        logger.error(f"Xử lý thanh toán chuyến {request.trip_id} thất bại: {result.payment_status}")
+
+    return result
+
+@app.post("/v1/trip-completion/calculate-fare", response_model=schemas.TripFareCalculation, tags=["Trip Completion"])
+async def calculate_trip_fare(distance_km: float, base_rate_per_km: float = 5000.0, commission_rate: float = 0.20):
+    """
+    Tính toán cước phí chuyến đi dựa trên khoảng cách.
+    """
+    fare_details = crud.calculate_trip_fare(distance_km, base_rate_per_km, commission_rate)
+    return fare_details
+
+# === END ROOT ENDPOINTS ===
+
 # --- Root endpoint ---
 @app.get("/")
 async def root():

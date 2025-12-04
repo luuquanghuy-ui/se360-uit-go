@@ -15,7 +15,8 @@ metadata:
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
 spec:
   rules:
-  - http:
+  - host: "85.211.200.60"
+    http:
       paths:
       # WebSocket routes - Không rewrite
       - path: /ws

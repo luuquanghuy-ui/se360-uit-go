@@ -26,7 +26,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: paymentservice
-        image: acruithuykhoigo.azurecr.io/paymentservice:latest # CI/CD sẽ thay
+        image: acruithuykhoigo.azurecr.io/paymentservice:fix-collection-truth
         ports:
         - containerPort: 8000
         envFrom:

@@ -2,8 +2,10 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 
 class LocationUpdate(BaseModel):
+    driver_id: str = Field(..., description="ID của tài xế")
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
+    timestamp: str = Field(None, description="Thời gian cập nhật (ISO format)")
 
 class NearbyDriver(BaseModel):
     driver_id: str

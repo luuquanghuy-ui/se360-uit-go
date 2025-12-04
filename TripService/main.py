@@ -176,52 +176,67 @@ async def deny_trip(trip_id: str, deny_data: schemas.AssignDriver):
 @app.post("/trips/{trip_id}/complete")
 async def complete_trip(trip_id: str, data: dict = Body(...)):
     """
-    Hoàn thành chuyến đi và xử lý thanh toán tùy theo phương thức đã chọn.
+    Hoàn thành chuyến đi và xử lý thanh toán với hệ thống mới.
+    Tự động tính cước phí dựa trên khoảng cách và hỗ trợ thanh toán ngân hàng giả lập.
     """
-    actual_fare = data.get("actual_fare")
-    if actual_fare is None:
-        raise HTTPException(status_code=400, detail="actual_fare is required in the request body")
+    distance_km = data.get("distance_km")
+    user_bank_info = data.get("user_bank_info")  # Optional, cho chuyển khoản
+
+    if distance_km is None:
+        raise HTTPException(status_code=400, detail="distance_km is required in the request body")
+
     trip = await crud.get_trip_by_id(trip_id)
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
 
-    payment_method = trip.get("payment", {}).get("method", "Cash")
-    if payment_method == "E-Wallet":
-        payment_request_data = {
-            "trip_id": trip_id,
-            "user_id": trip.get("passenger_id"),
-            "driver_id": trip.get("driver_id"),
-            "amount": actual_fare
-        }
+    # Lấy thông tin payment method từ trip data
+    payment_method = trip.get("payment", {}).get("method", "CASH")
+    # Convert E-Wallet to BANK_TRANSFER cho hệ thống mới
+    if payment_method.upper() == "E-WALLET":
+        payment_method = "BANK_TRANSFER"
 
-        PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL")
-        if not PAYMENT_SERVICE_URL:
-            raise HTTPException(status_code=500, detail="PAYMENT_SERVICE_URL is not configured")
+    PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL")
+    if not PAYMENT_SERVICE_URL:
+        raise HTTPException(status_code=500, detail="PAYMENT_SERVICE_URL is not configured")
 
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{PAYMENT_SERVICE_URL}/process-payment", json=payment_request_data, timeout=20.0
-                )
-                response.raise_for_status()
-                payment_result = response.json()
-        except (httpx.RequestError, httpx.TimeoutException):
-            raise HTTPException(status_code=503, detail="Could not connect to Payment Service")
-        except httpx.HTTPStatusError as e:
-            raise HTTPException(status_code=e.response.status_code, detail=e.response.json())
-        await crud.update_trip_status(trip_id, models.TripStatusEnum.COMPLETED)
-        await crud.update_trip_fare(trip_id, actual_fare)
+    # Tạo request cho PaymentService mới
+    payment_completion_request = {
+        "trip_id": trip_id,
+        "driver_id": trip.get("driver_id"),
+        "user_id": trip.get("passenger_id"),
+        "distance_km": distance_km,
+        "payment_method": payment_method,
+        "user_bank_info": user_bank_info if payment_method == "BANK_TRANSFER" else None
+    }
 
-        return {
-            "message": "Trip completed and payment processed successfully",
-            "payment_details": payment_result
-        }
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{PAYMENT_SERVICE_URL}/v1/trip-completion/complete",
+                json=payment_completion_request,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            payment_result = response.json()
+    except (httpx.RequestError, httpx.TimeoutException) as e:
+        logger.error(f"Payment service connection error: {e}")
+        raise HTTPException(status_code=503, detail="Could not connect to Payment Service")
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Payment service error: {e.response.text}")
+        raise HTTPException(status_code=e.response.status_code, detail=e.response.json())
 
-    else:
-        await crud.update_trip_status(trip_id, models.TripStatusEnum.COMPLETED)
-        await crud.update_trip_fare(trip_id, actual_fare)
-        
-        return {"message": "Trip completed (Cash payment)"}
+    # Cập nhật trạng thái trip
+    await crud.update_trip_status(trip_id, models.TripStatusEnum.COMPLETED)
+
+    # Cập nhật fare nếu payment thành công
+    if payment_result.get("success") and payment_result.get("fare_details"):
+        fare_details = payment_result["fare_details"]
+        await crud.update_trip_fare(trip_id, fare_details["total_fare"])
+
+    return {
+        "message": "Trip completed and payment processed successfully",
+        "payment_result": payment_result
+    }
 
 @app.post("/trips/{trip_id}/cancel")
 async def cancel_trip(trip_id: str, cancellation: schemas.CancellationCreate):
