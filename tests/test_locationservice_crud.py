@@ -27,6 +27,10 @@ class FakeRedisClient:
     async def zrem(self, key, member):
         self.zrem_calls.append((key, member))
 
+    async def execute_command(self, *args, **kwargs):
+        # Mock execute_command for georadius commands
+        return self._geosearch_result
+
     async def geosearch(
         self,
         key,
