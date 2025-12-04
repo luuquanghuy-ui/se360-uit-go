@@ -30,7 +30,7 @@ _token_expiry_time: Optional[datetime] = None
 
 
 # Mapbox API configuration
-MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN", "pk.default_token_change_in_production")
+MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN")
 LOCATION_SERVICE_URL = os.getenv("LOCATION_SERVICE_URL", "http://locationservice:8000")
 DRIVER_SERVICE_URL = os.getenv("DRIVER_SERVICE_URL", "http://driverservice:8000")
 def convert_objectid(doc):
@@ -79,6 +79,10 @@ async def get_trips_near_location(longitude: float, latitude: float, max_distanc
 
 async def get_coordinates(location_name: str) -> tuple | None:
     """Hàm này nhận tên một địa điểm và trả về tọa độ (kinh độ, vĩ độ)."""
+    if not MAPBOX_ACCESS_TOKEN:
+        logger.error("Mapbox access token not configured")
+        return None
+
     geocoding_url = "https://api.mapbox.com/search/geocode/v6/forward"
     params = {
         'q': location_name,
@@ -109,9 +113,13 @@ async def get_coordinates(location_name: str) -> tuple | None:
 
 async def get_route_info(pickup_coords: tuple[float, float], dropoff_coords: tuple[float, float], vehicle_type: models.VehicleTypeEnum) -> dict | None:
     """Get route information from Mapbox Directions API"""
+    if not MAPBOX_ACCESS_TOKEN:
+        logger.error("Mapbox access token not configured")
+        return None
+
     directions_url = "https://api.mapbox.com/directions/v5/mapbox/driving"
     coordinates = f"{pickup_coords[0]},{pickup_coords[1]};{dropoff_coords[0]},{dropoff_coords[1]}"
-    
+
     params = {
         'access_token': MAPBOX_ACCESS_TOKEN,
         'geometries': 'polyline',
